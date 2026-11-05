@@ -53,4 +53,27 @@ storage/         运行时数据（数据库、结果、缓存）
 
 ## 当前状态
 
-设计阶段。代码编写待评审通过后开始。
+- M1 骨架已完成：建库与种子数据、登录鉴权、系统状态、首页总览、前端框架与登录页，已本地验证。
+- M2 数据域已完成：数据集登记/扫描（R2R-CE 1839 条实测）、Episode 检索、观测时间轴、质量校验、三类切分、因果切片导出，已端到端验证。
+- M3 任务域已完成：模型档案与可用性探测、配置模板、任务创建与配置快照、调度器（队列/并发/GPU 互斥）、SSE 实时监控、暂停/恢复/取消/重跑、Mock 与 StreamVLN 双适配器，已端到端验证。
+
+已知限制：
+
+- StreamVLN 适配器按官方脚本整段执行 `eval_split`，数据库切分只用于结果对齐与统计，无法把子集参数透传给上游（上游没有该开关）。
+- 断点续跑以 episode 为粒度：服务重启后任务标记失败，可通过「重跑失败项」继续未完成部分。
+- 默认账号：`admin / admin123`、`operator / operator123`、`viewer / viewer123`。
+- 启动方式（本机使用 `pytorch` 环境，监听 `0.0.0.0:8080` 以便 VS Code 端口转发）：
+
+```bash
+/mnt/workspace/miniconda3/envs/pytorch/bin/python run.py
+# 或直接
+/mnt/workspace/miniconda3/envs/pytorch/bin/python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8080
+```
+
+- 前端开发模式（可选，热更新）：
+
+```bash
+cd frontend && npm run dev      # 0.0.0.0:5173，/api 代理到 127.0.0.1:8080
+```
+
+- VS Code：在「端口」面板转发 `8080`（开发前端时再转发 `5173`），浏览器打开转发地址即可。

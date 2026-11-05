@@ -1,0 +1,27 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  open_browser: false
+
+storage:
+  work_dir: ./storage
+  db_path: ./storage/eval.db
+  artifact_keep_days: 90
+
+scheduler:
+  max_parallel_tasks: 2
+  episode_timeout_s: 300
+  poll_interval_ms: 500
+  gpu_ids: []
+
+security:
+  token_ttl_hours: 12
+  pbkdf2_iterations: 200000
+
+logging:
+  level: INFO
+  keep_days: 30
+
+demo:
+  enabled: true
+  sample_results_dir: ./storage/sample_results

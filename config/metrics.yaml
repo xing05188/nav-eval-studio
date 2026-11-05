@@ -1,0 +1,72 @@
+# 指标定义与失败归因规则。软件启动时加载，用于聚合计算与诊断。
+metrics:
+  - key: sr
+    label: SR
+    name: 成功率
+    better: higher
+    format: percent
+  - key: spl
+    label: SPL
+    name: 加权成功率
+    better: higher
+    format: percent
+  - key: ne
+    label: NE
+    name: 导航误差
+    better: lower
+    format: meter
+  - key: os
+    label: OS
+    name: Oracle 成功率
+    better: higher
+    format: percent
+  - key: ndtw
+    label: nDTW
+    name: 归一化动态时间规整
+    better: higher
+    format: percent
+  - key: tl
+    label: TL
+    name: 平均轨迹长度
+    better: lower
+    format: meter
+
+diagnosis:
+  # 判定阈值，单位与字段含义见说明
+  off_track_distance: 5.0      # 终点距参考路径超过该值判为偏离轨迹(米)
+  stuck_speed: 0.05            # 连续多步位移小于该值判为原地打转(米/步)
+  stuck_patience: 5            # 连续步数
+  early_stop_radius: 3.0       # 提前停止时距目标超过该值判为早停(米)
+  goal_radius: 3.0             # 判定到达目标的半径(米)
+
+reasons:
+  - key: timeout
+    label: 超时
+    description: 达到最大步数或时间预算仍未停止
+  - key: collision
+    label: 碰撞
+    description: 位移与动作不一致或与场景发生碰撞
+  - key: off_track
+    label: 偏离轨迹
+    description: 终点距离参考路径过远
+  - key: loop
+    label: 原地打转
+    description: 长时间位置几乎不变
+  - key: stuck
+    label: 卡死
+    description: 连续多步无有效动作
+  - key: early_stop
+    label: 早停
+    description: 模型提前停止但未到达目标
+  - key: goal_unreachable
+    label: 目标不可达
+    description: 目标点不在可通行区域
+  - key: parse_error
+    label: 解析错误
+    description: 模型输出无法解析为有效动作
+  - key: oom
+    label: 显存不足
+    description: 推理过程显存溢出
+  - key: unknown
+    label: 未知
+    description: 未能归类
