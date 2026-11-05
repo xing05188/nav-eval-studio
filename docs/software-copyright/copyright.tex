@@ -1,0 +1,27 @@
+% ============================================================
+%  计算机软件著作权登记申请表
+% ============================================================
+% 编译：make
+% 或：  latexmk -xelatex copyright.tex
+%
+% 版式与填表命令在 style/tongjicopyright.sty，正文与具体填写内容在
+% chapters/copyright_body.tex。该表不是论文正文，不生成封面、摘要、
+% 目录、参考文献等论文结构，也不绘制装订线。
+% ============================================================
+\documentclass[
+  oneside,
+  fontset=fandol,
+  times=true,       % 西文用 TeX Gyre Termes（Times 兼容），不依赖 newtx
+  biblatex=false,
+]{tongjithesis}
+
+\usepackage{tongjicopyright}
+
+\begin{document}
+
+\pagestyle{empty}
+\global\tjbindinglinefalse
+
+\input{chapters/copyright_body}
+
+\end{document}

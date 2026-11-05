@@ -1,0 +1,122 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% tongjicopyright -- 计算机软件著作权登记申请表版式
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 本文件只提供“计算机软件著作权登记申请表”所需的页面设置、表格列宽与
+% 填表小工具，不修改 tongjithesis.cls 的任何既有行为。正文内容见
+% chapters/copyright_body.tex，编译入口见 copyright.tex。
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{tongjicopyright}[2026/11/05 Layout for software copyright application form]
+
+\RequirePackage{longtable}
+\RequirePackage{array}
+\RequirePackage{xcolor}
+\RequirePackage{geometry}
+
+% ==========================================
+% 页面设置
+% ==========================================
+% 原表为 A4，上下 2.54cm、左右 3.17cm。该表不属于论文正文，故不沿用
+% tongjithesis 的论文页边距与装订线。
+\geometry{top=2.54cm,bottom=2.54cm,left=3.17cm,right=3.17cm}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+% 表格首页与续表页的顶端都直接从页边距开始，避免 \topskip 在首页标题和
+% longtable 续表上方各留出一行空白（原表没有这段空白）。
+\setlength{\topskip}{0pt}
+\AtBeginDocument{\setlength{\topskip}{0pt}}
+
+% ==========================================
+% 颜色与填表小工具
+% ==========================================
+% 原表以深红色标注字数限制等提示，以浅灰色标注输入框占位文字。
+\definecolor{tjcrred}{HTML}{C00000}
+\definecolor{tjcrgray}{HTML}{808080}
+
+\newcommand{\tjcrred}[1]{{\color{tjcrred}#1}}
+\newcommand{\tjcrgray}[1]{{\color{tjcrgray}#1}}
+
+% 空白下划线：用于登记号、日期等需要打印后手写的字段。
+% 用法：\tjcrblank{3cm}（宽度为必填参数）。
+\newcommand{\tjcrblank}[1]{\rule[-0.25em]{#1}{0.4pt}}
+
+% 勾选/未勾选条目：把方框与其后的文字装在同一个 \mbox 中，避免换行时
+% 方框与条目分离。长条目（如“下达任务开发……”）直接写 \tjunchecked 后接文字。
+\newcommand{\tjcrchk}[1]{\mbox{\tjchecked\hspace{0.25em}#1}}
+\newcommand{\tjcrunchk}[1]{\mbox{\tjunchecked\hspace{0.25em}#1}}
+
+% 整行高度：模仿 10.5bp/15.6bp 正文在 \arraystretch=1.5 下的标准支柱
+% （高 16.35bp、深 7.05bp，合计 23.4bp），使跨两列的分节行与普通行等高。
+\newcommand{\tjcrstrut}{\rule[-7.05pt]{0pt}{16.35pt}}
+
+% ==========================================
+% 表格行
+% ==========================================
+% 分节行：跨两列、左对齐、加粗，左侧留一个 \tabcolsep 的单元格内边距。
+\newcommand{\tjcrsection}[1]{%
+  \multicolumn{2}{|@{\hspace{\tabcolsep}}l@{\hspace{\tabcolsep}}|}%
+    {\tjcrstrut\bfseries\songti #1}\\ \hline}
+
+% 普通字段行：左列标签、右列内容，行末画横线。
+% 两端各加一个 23.4bp 的支柱，使单行行高与 1.5 倍行距一致。
+\newcommand{\tjcrrow}[2]{\tjcrstrut #1 & \tjcrstrut #2 \\ \hline}
+
+% 不加支柱的字段行：供“著作权人”这类由子表撑高的行使用，避免子表上方
+% 多出一整行空白（子表自身已有高度）。
+\newcommand{\tjcrrowraw}[2]{#1 & #2 \\ \hline}
+
+% 长文本字段的续行：左列留空，行末不画横线，使表格看起来仍是同一格。
+% 续行不加支柱，行距与正文一致（15.6bp），分页处不会出现段落式空隙。
+\newcommand{\tjcrcont}[1]{& #1 \\}
+\newcommand{\tjcrlastcont}[1]{& #1 \\ \hline}
+
+% ==========================================
+% 申请表主表
+% ==========================================
+% 列宽推导（A4，左右页边距 3.17cm，版心 14.66cm）：
+%   标签列 2.90cm + 内容列 10.94cm + 4×\tabcolsep(5.4pt) + 3×0.4pt ≈ 14.65cm
+% 字号取五号（10.5bp），行距 15.6bp；单行行高由 \tjcrstrut 固定为约 23.4bp。
+% \tjfonttable 由 tongjithesis.cls 定义；provide 一份空定义，便于单独测试本文件。
+\providecommand{\tjfonttable}{}
+\newenvironment{tjcrform}{%
+  % tongjithesis 对 longtable/tabular 设了 \AtBeginEnvironment{...}{\tjfonttable}，
+  % 其默认值是 10.5bp/18bp；这里改成本表需要的 10.5bp/15.6bp，避免表格行高
+  % 被论文表格的 18bp 行距撑大。
+  \renewcommand{\tjfonttable}{\fontsize{10.5bp}{15.6bp}\linespread{1}\selectfont}%
+  \fontsize{10.5bp}{15.6bp}\linespread{1}\selectfont
+  \setlength{\tabcolsep}{5.4pt}%
+  \renewcommand{\arraystretch}{1}%
+  \setlength{\LTleft}{0pt}%
+  \setlength{\LTright}{\fill}%
+  \setlength{\LTpre}{0pt}%
+  \setlength{\LTpost}{0pt}%
+  \begin{longtable}{|>{\fontsize{10bp}{15.6bp}\selectfont\centering\arraybackslash}m{2.90cm}|p{10.94cm}|}
+  \hline
+  \endfirsthead
+  \hline
+  \endhead
+}{%
+  \end{longtable}%
+}
+
+% ==========================================
+% 著作权人子表
+% ==========================================
+% 子表总宽与主表内容列一致：2.10+0.90+1.70+1.70+0.90+1.35+0.94=9.59cm，
+% 加 7×2×\tabcolsep(2.5pt) 与 8 条 0.4pt 竖线后约 10.94cm。
+\newenvironment{tjcrcopyrighters}{%
+  \setlength{\tabcolsep}{2.5pt}%
+  \renewcommand{\arraystretch}{1.5}%
+  \begin{tabular}[t]{%
+    |>{\centering\arraybackslash}p{2.10cm}%
+    |>{\centering\arraybackslash}p{0.90cm}%
+    |>{\centering\arraybackslash}p{1.70cm}%
+    |>{\centering\arraybackslash}p{1.70cm}%
+    |>{\centering\arraybackslash}p{0.90cm}%
+    |>{\centering\arraybackslash}p{1.35cm}%
+    |>{\centering\arraybackslash}p{0.94cm}|}
+  \hline
+}{%
+  \end{tabular}%
+}
+
+\endinput
