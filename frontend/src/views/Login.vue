@@ -2,12 +2,12 @@
   <div class="login-page">
     <section class="brand-side">
       <div class="brand-top">
-        <div class="brand-mark">NE</div>
+        <img class="brand-mark" src="/favicon.png" alt="NavEval Studio" />
         <span class="brand-name">NavEval Studio</span>
       </div>
 
       <div class="brand-body">
-        <div class="eyebrow">EMBODIED NAVIGATION · EVALUATION &amp; DIAGNOSIS</div>
+        <div class="eyebrow">用于 R2R-CE 与 RxR-CE 基准的评测、诊断与回放</div>
         <h1>具身导航多模态流式<br />评测与诊断软件</h1>
         <p class="lede">
           面向连续环境视觉语言导航模型，覆盖数据准备、任务调度、轨迹回放与指标诊断的完整评测闭环。
@@ -136,13 +136,14 @@ async function submit() {
 .login-page {
   display: flex;
   min-height: 100vh;
-  background: #fff;
+  background: var(--nav-bg);
 }
 
 .brand-side {
   width: 56%;
   min-width: 520px;
-  background: radial-gradient(1200px 600px at 10% 0%, #1d3a6e 0%, #0d1930 55%, #0a1426 100%);
+  background: var(--nav-sidebar);
+  border-right: 1px solid #22344f;
   color: #e8eefb;
   display: flex;
   flex-direction: column;
@@ -159,14 +160,10 @@ async function submit() {
 .brand-mark {
   width: 34px;
   height: 34px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, #2f6fed, #59a0ff);
-  color: #fff;
-  font-weight: 700;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: var(--nav-radius-sm);
+  display: block;
+  object-fit: contain;
+  flex: 0 0 34px;
 }
 
 .brand-name {
@@ -180,10 +177,9 @@ async function submit() {
 }
 
 .eyebrow {
-  font-size: 11px;
-  letter-spacing: 1.6px;
-  color: #6d8dbe;
-  margin-bottom: 18px;
+  font-size: 12px;
+  color: #a9bdd8;
+  margin-bottom: 16px;
 }
 
 h1 {
@@ -251,7 +247,7 @@ h1 {
   align-items: center;
   justify-content: center;
   padding: 40px;
-  background: #fff;
+  background: var(--nav-panel);
 }
 
 .form-card {
@@ -278,9 +274,9 @@ h2 {
 .tips {
   margin-top: 28px;
   padding: 14px 16px;
-  border: 1px dashed var(--nav-border);
-  border-radius: 10px;
-  background: #fafbfe;
+  border: 1px dashed var(--nav-border-strong);
+  border-radius: var(--nav-radius-sm);
+  background: #f8fafd;
 }
 
 .tips-title {

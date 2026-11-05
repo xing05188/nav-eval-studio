@@ -5,7 +5,10 @@
         <h2 class="page-title">评测任务</h2>
         <div class="page-subtitle">配置快照、队列执行与运行状态监控</div>
       </div>
-      <el-button type="primary" :icon="Plus" @click="openCreate">新建评测</el-button>
+      <div class="header-actions">
+        <el-button :icon="FolderOpened" @click="openImport">导入历史产物</el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreate">新建评测</el-button>
+      </div>
     </div>
 
     <section class="panel">
@@ -26,12 +29,30 @@
         <span class="total">共 {{ total }} 个任务</span>
       </div>
 
-      <el-table v-loading="loading" :data="rows" empty-text="暂无评测任务">
+      <el-table
+        v-loading="loading"
+        :data="rows"
+        empty-text="暂无评测任务"
+        :default-sort="{ prop: 'queued_at', order: 'descending' }"
+        @sort-change="onSortChange"
+      >
         <el-table-column prop="id" label="#" width="56" />
         <el-table-column label="任务" min-width="220">
           <template #default="{ row }">
             <el-link type="primary" :underline="false" @click="openTask(row)">{{ row.name }}</el-link>
             <div class="sub">{{ row.note || '—' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="queued_at"
+          label="创建时间"
+          width="165"
+          sortable="custom"
+          :sort-orders="['descending', 'ascending']"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span class="mono tiny">{{ row.queued_at || '—' }}</span>
           </template>
         </el-table-column>
         <el-table-column label="数据集 / 切分" min-width="190" show-overflow-tooltip>
@@ -221,6 +242,80 @@
         <el-button type="primary" :loading="saving" @click="submit">创建并入队</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="importVisible"
+      title="导入历史评测产物"
+      width="860px"
+      :close-on-click-modal="false"
+    >
+      <el-alert
+        type="info"
+        :closable="false"
+        show-icon
+        title="扫描 <根目录>/results/<实验名>/streamvln/result.json，按 (scene_id, episode_id) 与已登记数据集对齐，生成只含实际跑过 episode 的切分与任务。"
+      />
+
+      <el-form label-width="92px" class="import-form">
+        <el-form-item label="产物根目录">
+          <el-input v-model="importForm.root_path" placeholder="/home/zjr/StreamVLN-kaggle-backup">
+            <template #append>
+              <el-button :loading="scanning" @click="scan">扫描</el-button>
+            </template>
+          </el-input>
+        </el-form-item>
+        <el-form-item label="导入选项">
+          <el-checkbox v-model="importForm.force" @change="preview && scan()">
+            覆盖已导入的实验（删除后按当前产物重建）
+          </el-checkbox>
+        </el-form-item>
+      </el-form>
+
+      <div v-if="preview" class="import-summary">
+        <el-tag size="small">扫描 {{ preview.scanned }} 个实验</el-tag>
+        <el-tag size="small" type="warning">待导入 {{ readyCount }}</el-tag>
+        <el-tag size="small" type="info">已导入 {{ skippedCount }}</el-tag>
+        <el-tag v-if="unmatchedCount" size="small" type="danger">未对齐 {{ unmatchedCount }}</el-tag>
+        <span class="mono tiny source">{{ preview.results_dir }}</span>
+      </div>
+
+      <el-table v-if="preview" :data="preview.items" height="300" size="small">
+        <el-table-column prop="experiment" label="实验" min-width="190" show-overflow-tooltip />
+        <el-table-column prop="dataset" label="对齐数据集" min-width="150" show-overflow-tooltip />
+        <el-table-column label="对齐 / 记录" width="120">
+          <template #default="{ row }">
+            <span class="mono tiny">{{ row.matched }} / {{ row.records }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="120">
+          <template #default="{ row }">
+            <el-tag size="small" :type="importStatus(row.status).type">
+              {{ importStatus(row.status).label }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="任务" width="90">
+          <template #default="{ row }">
+            <el-link
+              v-if="row.task_id"
+              type="primary"
+              :underline="false"
+              @click="openTask({ id: row.task_id })"
+            >
+              #{{ row.task_id }}
+            </el-link>
+            <span v-else class="sub">—</span>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <template #footer>
+        <el-button @click="importVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="importing" :disabled="!readyCount" @click="runImport">
+          开始导入
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -228,7 +323,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search } from '@element-plus/icons-vue'
+import { FolderOpened, Plus, Search } from '@element-plus/icons-vue'
 import { api } from '@/api'
 import { formatPercent } from '@/utils/format'
 
@@ -239,11 +334,29 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
 const loading = ref(false)
-const filters = reactive({ status: '', q: '' })
+const filters = reactive({ status: '', q: '', order: 'desc' })
 
 const dialogVisible = ref(false)
 const saving = ref(false)
 const formRef = ref(null)
+
+const importVisible = ref(false)
+const scanning = ref(false)
+const importing = ref(false)
+const preview = ref(null)
+const importForm = reactive({ root_path: '', force: false })
+
+const readyCount = computed(
+  () => preview.value?.items.filter((item) => item.status === 'ready').length || 0,
+)
+const skippedCount = computed(
+  () =>
+    preview.value?.items.filter((item) => ['skipped', 'imported'].includes(item.status)).length || 0,
+)
+const unmatchedCount = computed(
+  () => preview.value?.items.filter((item) => item.status === 'unmatched').length || 0,
+)
+
 const datasets = ref([])
 const splits = ref([])
 const models = ref([])
@@ -309,6 +422,7 @@ async function load() {
     const data = await api.tasks({
       status: filters.status || undefined,
       q: filters.q || undefined,
+      order: filters.order,
       page: page.value,
       page_size: pageSize.value,
     })
@@ -322,6 +436,14 @@ async function load() {
 function reload() {
   page.value = 1
   load()
+}
+
+function onSortChange({ prop, order }) {
+  if (prop !== 'queued_at') return
+  const next = order === 'descending' ? 'desc' : 'asc'
+  if (next === filters.order) return
+  filters.order = next
+  reload()
 }
 
 async function openCreate() {
@@ -417,18 +539,119 @@ function openTask(row) {
   router.push(`/tasks/${row.id}`)
 }
 
+function importStatus(status) {
+  const map = {
+    ready: { label: '待导入', type: 'warning' },
+    created: { label: '已新增', type: 'success' },
+    updated: { label: '已同步更新', type: 'success' },
+    imported: { label: '已导入', type: 'info' },
+    skipped: { label: '已存在', type: 'info' },
+    unmatched: { label: '未对齐', type: 'danger' },
+    failed: { label: '失败', type: 'danger' },
+  }
+  return map[status] || { label: status, type: 'info' }
+}
+
+async function openImport() {
+  importVisible.value = true
+  preview.value = null
+  importForm.force = false
+  try {
+    const sources = await api.importSources()
+    importForm.root_path = sources.root || ''
+    if (sources.experiments) {
+      await scan()
+    } else {
+      ElMessage.warning(sources.message || '绑定目录下没有可用产物，请检查路径')
+    }
+  } catch {
+    // 错误已提示
+  }
+}
+
+async function scan() {
+  if (!importForm.root_path.trim()) {
+    ElMessage.warning('请填写产物根目录')
+    return
+  }
+  scanning.value = true
+  try {
+    preview.value = await api.importResults({
+      root_path: importForm.root_path.trim(),
+      dry_run: true,
+      force: importForm.force,
+    })
+  } catch {
+    preview.value = null
+  } finally {
+    scanning.value = false
+  }
+}
+
+async function runImport() {
+  importing.value = true
+  try {
+    const result = await api.importResults({
+      root_path: importForm.root_path.trim(),
+      force: importForm.force,
+    })
+    preview.value = result
+    const failed = result.failed || 0
+    const text = `导入完成：新增 ${result.created}，覆盖 ${result.updated}，跳过 ${result.skipped}，失败 ${failed}`
+    if (failed) {
+      ElMessage.warning(text)
+    } else {
+      ElMessage.success(text)
+    }
+    page.value = 1
+    await load()
+  } catch {
+    // 错误已提示
+  } finally {
+    importing.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
 <style scoped>
 .filters {
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.import-form {
+  margin-top: 14px;
+}
+
+.import-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 10px;
+  padding: 9px 12px;
+  flex-wrap: wrap;
+  background: #f8fafd;
+  border: 1px solid var(--nav-border);
+  border-radius: var(--nav-radius-sm);
+}
+
+.import-summary .source {
+  color: var(--nav-text-muted);
+  margin-left: auto;
 }
 
 .total {
   margin-left: auto;
-  font-size: 12px;
+  font-size: var(--nav-font-caption);
   color: var(--nav-text-muted);
+  white-space: nowrap;
 }
 
 .sub {
@@ -445,20 +668,25 @@ onMounted(load)
   display: flex;
   justify-content: flex-end;
   padding: 12px 16px;
+  border-top: 1px solid var(--nav-border);
 }
 
 .param-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px 16px;
+  gap: 10px 12px;
   width: 100%;
 }
 
 .param {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   font-size: 12px;
   color: var(--nav-text-muted);
+  padding: 8px 10px;
+  background: #f8fafd;
+  border: 1px solid var(--nav-border);
+  border-radius: var(--nav-radius-xs);
 }
 </style>

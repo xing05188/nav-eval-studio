@@ -25,3 +25,19 @@ logging:
 demo:
   enabled: true
   sample_results_dir: ./storage/sample_results
+
+import:
+  # 历史评测产物根目录（其下形如 results/<实验名>/streamvln/result.json）
+  results_root: /home/zjr/StreamVLN-kaggle-backup
+  # 备份库自动导入根目录：启动时同步一次，之后监视目录变化做增量导入
+  backup_root: /home/zjr/StreamVLN-kaggle-backup
+  auto_enabled: true
+  auto_interval_s: 300
+  auto_sections: [datasets, scenes, models, results, assets]
+  auto_scan_episodes: true
+  # 单个数据集目录下 episode 文件总大小超过该值时只登记不解析，避免自动导入卡住
+  scan_limit_mb: 32
+  # 训练/大规模轨迹数据只登记路径，不自动解析 episode（可在数据集页手动扫描）
+  scan_exclude: [train, envdrop, scalevln]
+  # 结果文件在最近 N 秒内仍在写入时，导入任务标记为「运行中」
+  running_grace_s: 600

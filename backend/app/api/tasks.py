@@ -38,13 +38,20 @@ def list_tasks(
     status: str | None = Query(default=None),
     dataset_id: int | None = Query(default=None),
     q: str | None = Query(default=None),
+    order: str = Query(default="desc", pattern="^(asc|desc)$"),
     page_no: int = Query(default=1, ge=1, alias="page"),
     page_size: int = Query(default=20, ge=1, le=100),
     _: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     items, total = task_service.list_tasks(
-        db, status=status, dataset_id=dataset_id, q=q, page=page_no, page_size=page_size
+        db,
+        status=status,
+        dataset_id=dataset_id,
+        q=q,
+        page=page_no,
+        page_size=page_size,
+        order=order,
     )
     return ok(page(items, total, page_no, page_size))
 

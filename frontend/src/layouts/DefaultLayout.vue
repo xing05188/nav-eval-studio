@@ -2,7 +2,7 @@
   <div class="layout">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">NE</div>
+        <img class="brand-mark" src="/favicon.png" alt="NavEval Studio" />
         <div class="brand-text">
           <div class="brand-name">NavEval Studio</div>
           <div class="brand-sub">具身导航评测与诊断</div>
@@ -53,6 +53,10 @@
         </el-menu-item>
 
         <div class="menu-group">系统</div>
+        <el-menu-item index="/backup-import">
+          <el-icon><Download /></el-icon>
+          <span>备份库导入</span>
+        </el-menu-item>
         <el-menu-item index="/settings">
           <el-icon><Setting /></el-icon>
           <span>系统设置</span>
@@ -147,27 +151,25 @@ async function handleCommand(command) {
   position: sticky;
   top: 0;
   height: 100vh;
+  z-index: 12;
+  border-right: 1px solid #1d2f4c;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 20px 18px 16px;
+  padding: 18px;
+  border-bottom: 1px solid #22344f;
 }
 
 .brand-mark {
   width: 34px;
   height: 34px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, #2f6fed, #4f9bff);
-  color: #fff;
-  font-weight: 700;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  letter-spacing: 0.5px;
+  border-radius: var(--nav-radius-sm);
+  display: block;
+  object-fit: contain;
+  flex: 0 0 34px;
 }
 
 .brand-name {
@@ -186,16 +188,20 @@ async function handleCommand(command) {
 .menu {
   flex: 1;
   border-right: none;
-  padding: 4px 8px;
+  padding: 4px 10px;
   overflow-y: auto;
 }
 
 .menu :deep(.el-menu-item) {
-  height: 42px;
-  line-height: 42px;
-  border-radius: 8px;
+  height: 38px;
+  line-height: 38px;
+  border-radius: var(--nav-radius-xs);
   margin-bottom: 2px;
+  padding-left: 12px !important;
   font-size: 13px;
+  font-weight: 500;
+  transition: background-color var(--nav-duration) var(--nav-ease),
+    color var(--nav-duration) var(--nav-ease);
 }
 
 .menu :deep(.el-menu-item:hover) {
@@ -203,7 +209,12 @@ async function handleCommand(command) {
 }
 
 .menu :deep(.el-menu-item.is-active) {
-  background: linear-gradient(90deg, #2f6fed, #3d7cf5);
+  background: var(--nav-accent);
+  color: #fff;
+  box-shadow: inset 3px 0 0 #a9c7ff;
+}
+
+.menu :deep(.el-menu-item.is-active .el-icon) {
   color: #fff;
 }
 
@@ -212,10 +223,20 @@ async function handleCommand(command) {
 }
 
 .menu-group {
-  color: #5d7291;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #8296b2;
   font-size: 11px;
-  letter-spacing: 1px;
-  padding: 14px 12px 6px;
+  letter-spacing: 0.8px;
+  padding: 15px 12px 6px;
+}
+
+.menu-group::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #233554;
 }
 
 .menu-tag {
@@ -231,18 +252,19 @@ async function handleCommand(command) {
 .sidebar-footer {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 14px 18px;
-  color: #607697;
+  gap: 8px;
+  padding: 13px 18px;
+  color: #93a7c2;
   font-size: 11px;
-  border-top: 1px solid #1b2a42;
+  border-top: 1px solid #22344f;
 }
 
 .dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #22c55e;
+  background: #3fbf6f;
+  flex: 0 0 6px;
 }
 
 .main {
@@ -253,8 +275,8 @@ async function handleCommand(command) {
 }
 
 .topbar {
-  height: 56px;
-  background: #fff;
+  height: var(--nav-header-height);
+  background: var(--nav-panel);
   border-bottom: 1px solid var(--nav-border);
   display: flex;
   align-items: center;
@@ -274,12 +296,12 @@ async function handleCommand(command) {
 }
 
 .crumb-root {
-  color: var(--nav-text-muted);
+  color: var(--nav-text-subtle);
 }
 
 .crumb-sep {
-  color: #c3cbda;
-  font-size: 12px;
+  color: #c9d4e4;
+  font-size: 11px;
 }
 
 .topbar-right {
@@ -293,12 +315,13 @@ async function handleCommand(command) {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 8px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  transition: background-color var(--nav-duration) var(--nav-ease);
 }
 
 .user:hover {
-  background: #f5f7fb;
+  background: #f3f7fd;
 }
 
 .avatar {
@@ -306,12 +329,13 @@ async function handleCommand(command) {
   height: 30px;
   border-radius: 50%;
   background: var(--nav-accent-soft);
-  color: var(--nav-accent);
+  color: var(--nav-accent-deep);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid #cddefb;
 }
 
 .user-meta {
@@ -332,5 +356,55 @@ async function handleCommand(command) {
 .content {
   flex: 1;
   overflow-y: auto;
+}
+
+/* 小屏：侧边栏收为图标导航，与全局 768px 断点一致 */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 64px;
+    flex-basis: 64px;
+  }
+
+  .brand {
+    justify-content: center;
+    padding: 14px 0;
+  }
+
+  .brand-text,
+  .menu-group,
+  .sidebar-footer > span:not(.dot) {
+    display: none;
+  }
+
+  .menu {
+    padding: 8px;
+  }
+
+  .menu :deep(.el-menu-item) {
+    justify-content: center;
+    padding: 0 !important;
+  }
+
+  .menu :deep(.el-menu-item span) {
+    display: none;
+  }
+
+  .sidebar-footer {
+    justify-content: center;
+    padding: 13px 0;
+  }
+
+  .topbar {
+    padding: 0 14px;
+  }
+
+  .crumb-root,
+  .crumb-sep {
+    display: none;
+  }
+
+  .topbar-right :deep(.el-tag) {
+    display: none;
+  }
 }
 </style>

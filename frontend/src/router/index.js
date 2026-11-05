@@ -68,6 +68,12 @@ const routes = [
         meta: { title: '报告中心', subtitle: '分析报告与指标矩阵导出' },
       },
       {
+        path: 'backup-import',
+        name: 'backup-import',
+        component: () => import('@/views/system/BackupImport.vue'),
+        meta: { title: '备份库导入', subtitle: '自动同步数据集、模型档案与评测资料' },
+      },
+      {
         path: 'settings',
         name: 'settings',
         component: () => import('@/views/system/Settings.vue'),

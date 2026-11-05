@@ -33,7 +33,20 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "security": {"token_ttl_hours": 12, "pbkdf2_iterations": 200000},
     "logging": {"level": "INFO", "keep_days": 30},
     "demo": {"enabled": True, "sample_results_dir": "./storage/sample_results"},
+    "import": {
+        "results_root": "",
+        "backup_root": "",
+        "auto_enabled": True,
+        "auto_interval_s": 300,
+        "auto_sections": ["datasets", "scenes", "models", "results", "assets"],
+        "auto_scan_episodes": True,
+        "scan_limit_mb": 32,
+        "scan_exclude": ["train", "envdrop", "scalevln"],
+        "running_grace_s": 600,
+    },
 }
+
+ALL_IMPORT_SECTIONS = ("datasets", "scenes", "models", "results", "assets")
 
 
 @dataclass
@@ -77,6 +90,21 @@ class DemoConfig:
 
 
 @dataclass
+class ImportConfig:
+    """历史评测产物与备份库自动导入的默认绑定。"""
+
+    results_root: Path = ROOT_DIR / "storage" / "sample_results"
+    backup_root: Path = ROOT_DIR / "storage" / "sample_results"
+    auto_enabled: bool = True
+    auto_interval_s: int = 300
+    auto_sections: list[str] = field(default_factory=lambda: list(ALL_IMPORT_SECTIONS))
+    auto_scan_episodes: bool = True
+    scan_limit_mb: int = 32
+    scan_exclude: list[str] = field(default_factory=lambda: ["train", "envdrop", "scalevln"])
+    running_grace_s: int = 600
+
+
+@dataclass
 class Settings:
     """进程内全局配置。"""
 
@@ -87,6 +115,7 @@ class Settings:
     security: SecurityConfig
     logging: LoggingConfig
     demo: DemoConfig
+    imports: ImportConfig = field(default_factory=ImportConfig)
     metrics: dict[str, Any] = field(default_factory=dict)
     models: dict[str, Any] = field(default_factory=dict)
     raw: dict[str, Any] = field(default_factory=dict)
@@ -148,6 +177,25 @@ def _load_yaml(path: Path) -> dict[str, Any]:
         return yaml.safe_load(handle) or {}
 
 
+def _load_import_config(data: dict[str, Any]) -> ImportConfig:
+    """组装导入配置；未单独配置备份根目录时沿用历史产物根目录。"""
+    raw = data.get("import", {}) or {}
+    fallback = raw.get("results_root") or data["demo"]["sample_results_dir"]
+    sections = [str(item) for item in raw.get("auto_sections", ALL_IMPORT_SECTIONS)]
+    sections = [item for item in sections if item in ALL_IMPORT_SECTIONS]
+    return ImportConfig(
+        results_root=_resolve(fallback),
+        backup_root=_resolve(raw.get("backup_root") or fallback),
+        auto_enabled=bool(raw.get("auto_enabled", True)),
+        auto_interval_s=max(10, int(raw.get("auto_interval_s", 300))),
+        auto_sections=sections or list(ALL_IMPORT_SECTIONS),
+        auto_scan_episodes=bool(raw.get("auto_scan_episodes", True)),
+        scan_limit_mb=max(1, int(raw.get("scan_limit_mb", 32))),
+        scan_exclude=[str(item).lower() for item in raw.get("scan_exclude", ["train", "envdrop", "scalevln"])],
+        running_grace_s=max(30, int(raw.get("running_grace_s", 600))),
+    )
+
+
 def load_settings(config_path: str | Path | None = None) -> Settings:
     """读取配置并组装为 Settings。"""
     path = Path(config_path) if config_path else Path(
@@ -162,6 +210,8 @@ def load_settings(config_path: str | Path | None = None) -> Settings:
         data["server"]["port"] = int(os.environ["NAVEVAL_PORT"])
     if os.environ.get("NAVEVAL_WORK_DIR"):
         data["storage"]["work_dir"] = os.environ["NAVEVAL_WORK_DIR"]
+    if os.environ.get("NAVEVAL_IMPORT_ROOT"):
+        data["import"]["backup_root"] = os.environ["NAVEVAL_IMPORT_ROOT"]
 
     storage = data["storage"]
     storage_cfg = StorageConfig(
@@ -186,6 +236,7 @@ def load_settings(config_path: str | Path | None = None) -> Settings:
             enabled=bool(data["demo"]["enabled"]),
             sample_results_dir=_resolve(data["demo"]["sample_results_dir"]),
         ),
+        imports=_load_import_config(data),
         metrics=_load_yaml(CONFIG_DIR / "metrics.yaml"),
         models=_load_yaml(CONFIG_DIR / "models.yaml"),
         raw=data,

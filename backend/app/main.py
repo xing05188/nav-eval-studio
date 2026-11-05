@@ -19,6 +19,7 @@ from .api import (
     audit,
     auth,
     datasets,
+    imports,
     models,
     overview,
     replay,
@@ -42,6 +43,7 @@ from .core.response import (
 from .core.security import init_secret, set_iterations
 from .db.seed import seed_all
 from .db.session import init_database, session_scope
+from .services.backup_auto_importer import get_auto_importer
 from .services.scheduler import get_scheduler
 
 logger = logging.getLogger(__name__)
@@ -85,8 +87,12 @@ async def lifespan(app: FastAPI):
     scheduler = get_scheduler()
     await scheduler.start()
     app.state.scheduler = scheduler
+    auto_importer = get_auto_importer()
+    await auto_importer.start()
+    app.state.backup_auto_importer = auto_importer
     logger.info("服务已启动")
     yield
+    await auto_importer.shutdown()
     await scheduler.shutdown()
     logger.info("服务已停止")
 
@@ -117,6 +123,7 @@ def create_app() -> FastAPI:
         audit,
         datasets,
         splits,
+        imports,
         models,
         templates,
         tasks,

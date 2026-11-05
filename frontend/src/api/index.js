@@ -105,6 +105,14 @@ export const api = {
   resumeTask: (id) => http.post(`/tasks/${id}/resume`),
   retryTask: (id) => http.post(`/tasks/${id}/retry-failed`),
 
+  importSources: () => http.get('/import/sources'),
+  importResults: (payload) => http.post('/import/results', payload, { timeout: 0 }),
+
+  backupOverview: (params) => http.get('/import/backup', { params }),
+  backupImport: (payload) => http.post('/import/backup', payload, { timeout: 0 }),
+  updateBackupAuto: (payload) => http.put('/import/backup/auto', payload),
+  backupAssets: (params) => http.get('/import/backup/assets', { params }),
+
   analysisTasks: (params) => http.get('/analysis/tasks', { params }),
   analysisCompare: (params) => http.get('/analysis/compare', { params }),
   analysisAblation: (params) => http.get('/analysis/ablation', { params }),

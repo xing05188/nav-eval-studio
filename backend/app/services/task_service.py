@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from ..core.config import get_settings
@@ -88,7 +88,9 @@ def list_tasks(
     q: str | None = None,
     page: int = 1,
     page_size: int = 20,
+    order: str = "desc",
 ) -> tuple[list[dict], int]:
+    """按任务时间（queued_at）排序，默认最新在前；缺失时间的记录始终排在最后。"""
     conditions = []
     if status:
         conditions.append(EvalTask.status == status)
@@ -98,13 +100,21 @@ def list_tasks(
         conditions.append(EvalTask.name.like(f"%{q}%"))
 
     total = db.scalar(select(func.count()).select_from(EvalTask).where(*conditions)) or 0
+    missing_time = case(
+        (EvalTask.queued_at.is_(None), 1),
+        (EvalTask.queued_at == "", 1),
+        else_=0,
+    )
+    descending = order == "desc"
+    time_order = EvalTask.queued_at.desc() if descending else EvalTask.queued_at.asc()
+    id_order = EvalTask.id.desc() if descending else EvalTask.id.asc()
     rows = db.execute(
         select(EvalTask, Dataset.name, Split.name, ModelProfile.name)
         .join(Dataset, Dataset.id == EvalTask.dataset_id)
         .join(Split, Split.id == EvalTask.split_id)
         .join(ModelProfile, ModelProfile.id == EvalTask.model_profile_id)
         .where(*conditions)
-        .order_by(EvalTask.id.desc())
+        .order_by(missing_time, time_order, id_order)
         .offset((page - 1) * page_size)
         .limit(page_size)
     ).all()
@@ -412,13 +422,21 @@ def samples(db: Session, task: EvalTask, limit: int = 500) -> list[dict[str, Any
 
 
 def mark_stale_tasks(db: Session) -> int:
-    """服务重启后，把遗留的 running/preparing 任务标记为失败。"""
+    """服务重启后，把遗留的 running/preparing 任务标记为失败。
+
+    备份库导入的外部评测由导入守护按结果文件同步状态，重启不应误判为中断。
+    """
     rows = db.scalars(
         select(EvalTask).where(EvalTask.status.in_(("running", "preparing")))
     ).all()
+    count = 0
     for task in rows:
+        config = _loads(task.config_json, {})
+        if isinstance(config, dict) and config.get("imported") and config.get("source_dir"):
+            continue
         task.status = "failed"
         task.error_msg = "服务重启，任务中断"
         task.finished_at = now_str()
+        count += 1
     db.flush()
-    return len(rows)
+    return count

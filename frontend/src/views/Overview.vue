@@ -293,7 +293,7 @@ onMounted(load)
 
 .stat-foot {
   font-size: 11px;
-  color: #9aa5b5;
+  color: var(--nav-text-subtle);
   margin-top: 4px;
 }
 
@@ -306,15 +306,22 @@ onMounted(load)
 
 .queue-chips {
   display: flex;
-  gap: 14px;
-  font-size: 12px;
+  gap: 8px;
+  font-size: 11.5px;
   color: var(--nav-text-muted);
+  flex-wrap: wrap;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  padding: 3px 8px;
+  background: #f6f8fc;
+  border: 1px solid var(--nav-border);
+  border-radius: var(--nav-radius-xs);
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .dot {

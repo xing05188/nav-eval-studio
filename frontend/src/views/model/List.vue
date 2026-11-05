@@ -5,7 +5,10 @@
         <h2 class="page-title">模型档案</h2>
         <div class="page-subtitle">登记推理后端、权重路径与允许的输入类型，供评测任务引用</div>
       </div>
-      <el-button type="primary" :icon="Plus" @click="openCreate">登记模型</el-button>
+      <div class="header-actions">
+        <el-button :icon="MagicStick" :disabled="!canWrite" @click="openAuto">自动配置</el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreate">登记模型</el-button>
+      </div>
     </div>
 
     <section class="panel">
@@ -128,17 +131,81 @@
         <el-alert type="info" :closable="false" :title="probeResult.suggestion" show-icon />
       </div>
     </el-dialog>
+
+    <el-dialog
+      v-model="autoVisible"
+      title="自动配置模型档案"
+      width="780px"
+      :close-on-click-modal="false"
+    >
+      <el-alert
+        type="info"
+        :closable="false"
+        show-icon
+        title="从绑定备份库识别 checkpoints 权重目录，自动配置代码/权重路径、torchrun 启动器与默认参数，并探测可用性。"
+        :description="`绑定目录：${autoRoot || '—'}；后台自动同步${autoEnabled ? '已开启' : '已关闭'}`"
+      />
+
+      <el-form label-width="92px" class="auto-form">
+        <el-form-item label="备份目录">
+          <el-input v-model="autoRoot" placeholder="备份库根目录">
+            <template #append>
+              <el-button :loading="autoScanning" @click="scanAuto">扫描预览</el-button>
+            </template>
+          </el-input>
+        </el-form-item>
+      </el-form>
+
+      <div v-if="autoPreview" class="auto-summary">
+        <el-tag size="small">发现 {{ autoPreview.scanned }} 项</el-tag>
+        <el-tag size="small" type="success">待配置 {{ autoPreview.created }}</el-tag>
+        <el-tag size="small" type="info">已配置 {{ autoPreview.skipped }}</el-tag>
+        <span class="mono tiny">{{ autoPreview.dry_run ? '预览模式' : '配置完成' }}</span>
+      </div>
+
+      <el-table v-if="autoPreview" :data="autoPreview.items" size="small" height="220">
+        <el-table-column prop="name" label="权重目录" min-width="210" show-overflow-tooltip />
+        <el-table-column label="相对路径" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span class="mono tiny">{{ row.rel_path || row.path }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag size="small" :type="autoStatus(row.status).type">
+              {{ autoStatus(row.status).label }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="说明" min-width="240" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.message }}</template>
+        </el-table-column>
+      </el-table>
+
+      <template #footer>
+        <el-button @click="autoVisible = false">关闭</el-button>
+        <el-button
+          type="primary"
+          :loading="autoRunning"
+          :disabled="!canWrite"
+          @click="runAuto"
+        >
+          开始自动配置
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleCheck, CircleClose, Plus } from '@element-plus/icons-vue'
+import { CircleCheck, CircleClose, MagicStick, Plus } from '@element-plus/icons-vue'
 import { api } from '@/api'
 import { useAuthStore } from '@/store/auth'
 
 const auth = useAuthStore()
+const canWrite = computed(() => auth.isAdmin || auth.role === 'operator')
 
 const rows = ref([])
 const loading = ref(false)
@@ -149,6 +216,13 @@ const probeVisible = ref(false)
 const probeResult = ref(null)
 const editing = ref(null)
 const formRef = ref(null)
+
+const autoVisible = ref(false)
+const autoRoot = ref('')
+const autoEnabled = ref(false)
+const autoPreview = ref(null)
+const autoScanning = ref(false)
+const autoRunning = ref(false)
 
 const form = reactive({
   name: '',
@@ -256,10 +330,100 @@ async function remove(row) {
   await load()
 }
 
+function autoStatus(status) {
+  const map = {
+    ready: { label: '待配置', type: 'warning' },
+    changed: { label: '待更新', type: 'warning' },
+    created: { label: '已配置', type: 'success' },
+    updated: { label: '已更新', type: 'success' },
+    skipped: { label: '已配置', type: 'info' },
+    failed: { label: '失败', type: 'danger' },
+  }
+  return map[status] || { label: status || '—', type: 'info' }
+}
+
+function autoPayload(dryRun) {
+  return {
+    root_path: autoRoot.value.trim() || null,
+    sections: ['models'],
+    dry_run: dryRun,
+    force: false,
+  }
+}
+
+async function openAuto() {
+  autoVisible.value = true
+  autoPreview.value = null
+  try {
+    const overview = await api.backupOverview()
+    autoRoot.value = overview.root || ''
+    autoEnabled.value = Boolean(overview.auto?.enabled)
+    if (overview.exists) await scanAuto()
+  } catch {
+    // 错误已由请求层提示
+  }
+}
+
+async function scanAuto() {
+  autoScanning.value = true
+  try {
+    autoPreview.value = await api.backupImport(autoPayload(true))
+  } catch {
+    autoPreview.value = null
+  } finally {
+    autoScanning.value = false
+  }
+}
+
+async function runAuto() {
+  if (!canWrite.value) {
+    ElMessage.warning('当前角色为只读，无法自动配置模型')
+    return
+  }
+  autoRunning.value = true
+  try {
+    const result = await api.backupImport(autoPayload(false))
+    autoPreview.value = result
+    const text = `配置完成：新增 ${result.created}，更新 ${result.updated}，跳过 ${result.skipped}，失败 ${result.failed}`
+    if (result.failed) ElMessage.warning(text)
+    else ElMessage.success(text)
+    await load()
+  } catch {
+    // 错误已由请求层提示
+  } finally {
+    autoRunning.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
 <style scoped>
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.auto-form {
+  margin-top: 14px;
+}
+
+.auto-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.mono {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+
+.tiny {
+  font-size: 11px;
+}
+
 .name {
   font-weight: 500;
 }
