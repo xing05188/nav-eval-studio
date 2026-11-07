@@ -24,6 +24,7 @@ from .api import (
     overview,
     replay,
     reports,
+    sim,
     splits,
     system,
     tasks,
@@ -45,6 +46,7 @@ from .db.seed import seed_all
 from .db.session import init_database, session_scope
 from .services.backup_auto_importer import get_auto_importer
 from .services.scheduler import get_scheduler
+from .services.sim import sim_session
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +96,8 @@ async def lifespan(app: FastAPI):
     yield
     await auto_importer.shutdown()
     await scheduler.shutdown()
+    # 仿真线程持有可能残留的 headless GL context，必须在进程退出前串行释放
+    await asyncio.to_thread(sim_session.shutdown)
     logger.info("服务已停止")
 
 
@@ -130,6 +134,7 @@ def create_app() -> FastAPI:
         analysis,
         reports,
         replay,
+        sim,
     ):
         app.include_router(module.router, prefix="/api")
 
@@ -196,7 +201,11 @@ def _mount_frontend(app: FastAPI) -> None:
                 and candidate.is_file()
             ):
                 return FileResponse(candidate)
-            return FileResponse(index_file)
+            # 入口 HTML 必须不缓存：否则前端重新构建后，浏览器仍用旧 HTML 去加载已删除的 chunk
+            return FileResponse(
+                index_file,
+                headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+            )
 
     else:
 

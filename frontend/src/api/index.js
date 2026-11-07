@@ -122,6 +122,16 @@ export const api = {
 
   replayEpisode: (taskId, rowId) => http.get(`/replay/${taskId}/${rowId}`),
 
+  // 交互式仿真：画面走 <img src="/api/sim/stream?token=">，这里只封装 JSON 接口
+  simStart: (payload) => http.post('/sim/sessions', payload, { timeout: 0 }),
+  simState: () => http.get('/sim/state'),
+  simAct: (action) => http.post('/sim/actions', { action }),
+  simStop: (sessionId) => http.delete(`/sim/sessions/${sessionId || 'current'}`),
+  // 模型驾驶：启用后权重在后台线程加载（约 12 s），这里不等加载完成
+  simPolicyStart: (payload = {}) => http.post('/sim/policy', payload),
+  simPolicyStop: () => http.delete('/sim/policy'),
+  simPolicyPause: (paused) => http.post('/sim/policy/pause', { paused }),
+
   reports: (params) => http.get('/reports', { params }),
   createReport: (payload) => http.post('/reports', payload),
   downloadReport: (id) => http.get(`/reports/${id}/download`, { responseType: 'blob' }),

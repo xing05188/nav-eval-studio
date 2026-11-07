@@ -41,3 +41,44 @@ import:
   scan_exclude: [train, envdrop, scalevln]
   # 结果文件在最近 N 秒内仍在写入时，导入任务标记为「运行中」
   running_grace_s: 600
+
+sim:
+  # Habitat 场景根目录（其下形如 mp3d/<scene_id>/<scene_id>.glb）。
+  # 留空时按 episode.meta_json 的 raw_scene_id 与数据集的 scene_root 自动回退。
+  scene_root: /home/zjr/StreamVLN-kaggle-backup/data/scene_datasets
+  # 仿真使用的 GPU（第一张为默认），启动时只读一次显存用于预警
+  # 本机约定：仿真与模型都压在 GPU2（14 GB 空闲够 仿真 4 GB + 8bit 权重 8.7 GB）
+  gpu_ids: [2]
+  # 动作节拍：4 Hz 仅用于后续的模型/自动策略，手动单步是即时生效的
+  tick_hz: 4.0
+  # 无人观看时的渲染上限
+  render_hz: 15.0
+  # 有浏览器在看画面时的渲染上限
+  stream_hz: 20.0
+  jpeg_quality: 82
+  # 同时观看 MJPEG 的连接数上限
+  max_clients: 4
+  # 无状态请求超过该秒数自动停止会话（0 表示不超时）
+  idle_timeout_s: 900
+  # 剩余显存低于该值(MB)时在页面上给警告，但不阻止启动
+  free_mem_warn_mb: 4096
+
+# 模型驾驶（docs/08）。关掉 enabled 后 /api/sim/policy 直接 400，
+# 手动驾驶与其余页面完全不受影响。
+policy:
+  enabled: true
+  # 留空 = 取 models.yaml 里第一个 family=streamvln 的档案
+  model_profile: ""
+  # 模型推理用的卡；null = 自动挑空闲显存最多的一张
+  gpu_id: 2
+  # 启动前硬校验：实测 8bit 权重占 8.7 GB，留 ~3 GB 给 KV/激活
+  min_free_mem_mb: 12000
+  # 8 次 forward ≈ 32 个环境步做一次历史汇总（与评测 slow_update_interval 节奏一致）
+  num_frames: 8
+  num_history: 8
+  # 一次 forward 出几个动作
+  num_future_steps: 4
+  # 单次 forward 超过该秒数判定失败并自动回手动
+  infer_timeout_s: 30
+  # 队列持续为空超过该秒数 → 自动暂停（省卡）
+  idle_pause_s: 60

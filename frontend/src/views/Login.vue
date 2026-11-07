@@ -7,51 +7,82 @@
       </div>
 
       <div class="brand-body">
-        <div class="eyebrow">用于 R2R-CE 与 RxR-CE 基准的评测、诊断与回放</div>
+        <p class="eyebrow">用于 R2R-CE 与 RxR-CE 基准的评测、诊断与回放</p>
         <h1>具身导航多模态流式<br />评测与诊断软件</h1>
         <p class="lede">
-          面向连续环境视觉语言导航模型，覆盖数据准备、任务调度、轨迹回放与指标诊断的完整评测闭环。
+          从数据准备到失败归因，把一次 VLN 评测变成可复现、可追溯的工程流程。
         </p>
 
-        <div class="features">
-          <div class="feature">
-            <div class="feature-icon"><el-icon><FolderOpened /></el-icon></div>
-            <div>
-              <div class="feature-title">数据与切分</div>
-              <div class="feature-desc">多源观测对齐、质量校验、严格因果切片</div>
-            </div>
-          </div>
-          <div class="feature">
-            <div class="feature-icon"><el-icon><VideoPlay /></el-icon></div>
-            <div>
-              <div class="feature-title">评测调度</div>
-              <div class="feature-desc">配置快照、队列执行、断点续跑与资源采样</div>
-            </div>
-          </div>
-          <div class="feature">
-            <div class="feature-icon"><el-icon><Position /></el-icon></div>
-            <div>
-              <div class="feature-title">轨迹回放</div>
-              <div class="feature-desc">第一视角、记忆窗口与几何叠加同步观察</div>
-            </div>
-          </div>
-          <div class="feature">
-            <div class="feature-icon"><el-icon><DataAnalysis /></el-icon></div>
-            <div>
-              <div class="feature-title">诊断分析</div>
-              <div class="feature-desc">指标对比、消融矩阵、失败归因与报告导出</div>
-            </div>
-          </div>
-        </div>
+        <figure class="chart">
+          <svg
+            class="track-svg"
+            viewBox="0 0 560 226"
+            role="img"
+            aria-label="导航航迹示意图：从起点经三个路径点到达目标点"
+          >
+            <defs>
+              <pattern id="login-grid" width="28" height="28" patternUnits="userSpaceOnUse">
+                <path d="M 28 0 L 0 0 0 28" fill="none" stroke="#1d3352" stroke-width="1" />
+              </pattern>
+            </defs>
+            <rect x="0" y="0" width="560" height="226" fill="url(#login-grid)" opacity="0.6" />
+
+            <g class="axis">
+              <text x="14" y="20">Y / m</text>
+              <text x="14" y="212">0</text>
+              <text x="504" y="212">X / m</text>
+            </g>
+
+            <polyline
+              class="track-path"
+              points="46,186 158,138 272,150 386,96 496,58"
+              fill="none"
+              stroke="#48c9a9"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+
+            <g class="nodes">
+              <circle cx="46" cy="186" r="5" />
+              <circle cx="158" cy="138" r="4" />
+              <circle cx="272" cy="150" r="4" />
+              <circle cx="386" cy="96" r="4" />
+            </g>
+
+            <g class="goal">
+              <circle cx="496" cy="58" r="13" />
+              <circle cx="496" cy="58" r="5" class="goal-core" />
+            </g>
+
+            <g class="labels">
+              <text x="46" y="208">START</text>
+              <text x="466" y="88">GOAL</text>
+            </g>
+          </svg>
+          <figcaption class="chart-caption">
+            <span><i class="key-line" /> 已走航迹</span>
+            <span><i class="key-node" /> 路径节点</span>
+            <span><i class="key-goal" /> 目标点</span>
+            <span class="chart-id mono">PATH / 01</span>
+          </figcaption>
+        </figure>
+
+        <ol class="flow" aria-label="评测流程">
+          <li><span class="flow-no mono">01</span><span>数据与切分</span></li>
+          <li><span class="flow-no mono">02</span><span>评测调度</span></li>
+          <li><span class="flow-no mono">03</span><span>轨迹回放</span></li>
+          <li><span class="flow-no mono">04</span><span>诊断分析</span></li>
+        </ol>
       </div>
 
-      <div class="brand-foot">V1.0.0 · 单机部署 · 零外部依赖</div>
+      <div class="brand-foot">V1.0.0，单机部署，无需外部服务</div>
     </section>
 
     <section class="form-side">
       <div class="form-card">
-        <h2>登录系统</h2>
-        <p class="hint">输入账号口令进入评测工作台</p>
+        <h2>登录工作台</h2>
+        <p class="hint">使用账号口令进入评测与诊断环境</p>
 
         <el-form :model="form" label-position="top" @submit.prevent="submit">
           <el-form-item label="用户名">
@@ -60,7 +91,8 @@
               size="large"
               placeholder="请输入用户名"
               :prefix-icon="User"
-              @keyup.enter="submit"
+              autocomplete="username"
+              aria-label="用户名"
             />
           </el-form-item>
           <el-form-item label="口令">
@@ -71,7 +103,8 @@
               show-password
               placeholder="请输入口令"
               :prefix-icon="Lock"
-              @keyup.enter="submit"
+              autocomplete="current-password"
+              aria-label="口令"
             />
           </el-form-item>
 
@@ -80,14 +113,14 @@
             size="large"
             class="submit-btn"
             :loading="loading"
-            @click="submit"
+            native-type="submit"
           >
             进入系统
           </el-button>
         </el-form>
 
         <div class="tips">
-          <div class="tips-title">内置账号</div>
+          <div class="tips-title">内置演示账号</div>
           <div class="tips-row"><span>管理员</span><code>admin / admin123</code></div>
           <div class="tips-row"><span>算法工程师</span><code>operator / operator123</code></div>
           <div class="tips-row"><span>访客</span><code>viewer / viewer123</code></div>
@@ -134,27 +167,38 @@ async function submit() {
 
 <style scoped>
 .login-page {
+  --lg-night: #0b1a2e;
+  --lg-chart: #10233c;
+  --lg-grid: #1d3352;
+  --lg-track: #48c9a9;
+  --lg-text: #e6eefb;
+  --lg-text-soft: #a9bdd8;
+  --lg-text-dim: #9ab4d2;
   display: flex;
   min-height: 100vh;
-  background: var(--nav-bg);
+  background: var(--nav-panel);
 }
 
+/* ---------------------------------------------------------------- 品牌侧 */
+
 .brand-side {
-  width: 56%;
-  min-width: 520px;
-  background: var(--nav-sidebar);
-  border-right: 1px solid #22344f;
-  color: #e8eefb;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 36px 56px;
+  flex: 1 1 52%;
+  min-width: 480px;
+  background: var(--lg-night);
+  border-right: 1px solid var(--lg-grid);
+  color: var(--lg-text);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  align-items: center;
+  gap: var(--nav-space-3);
+  padding: var(--nav-space-4) 56px;
 }
 
 .brand-top {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
+  align-self: start;
 }
 
 .brand-mark {
@@ -169,101 +213,200 @@ async function submit() {
 .brand-name {
   font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
 }
 
 .brand-body {
-  max-width: 560px;
+  max-width: 520px;
 }
 
 .eyebrow {
   font-size: 12px;
-  color: #a9bdd8;
-  margin-bottom: 16px;
+  color: var(--lg-text-soft);
+  margin: 0 0 14px;
 }
 
 h1 {
-  font-size: 34px;
-  line-height: 1.35;
-  margin: 0 0 18px;
+  font-size: 32px;
+  line-height: 1.36;
+  margin: 0 0 14px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: -0.3px;
 }
 
 .lede {
-  color: #9fb3d1;
-  font-size: 14px;
-  line-height: 1.9;
-  margin: 0 0 34px;
+  color: var(--lg-text-soft);
+  font-size: 13.5px;
+  line-height: 1.8;
+  max-width: 46ch;
+  margin: 0;
 }
 
-.features {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px 24px;
+.chart {
+  max-width: 480px;
+  margin: var(--nav-space-4) 0 var(--nav-space-3);
+  padding: 10px 12px 0;
+  border: 1px solid var(--lg-grid);
+  border-radius: var(--nav-radius);
+  background: var(--lg-chart);
 }
 
-.feature {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
+.track-svg {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
-.feature-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: rgba(79, 140, 255, 0.14);
-  color: #6ea4ff;
+.axis text,
+.labels text {
+  fill: var(--lg-text-dim);
+  font-family: var(--nav-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.4px;
+}
+
+.track-path {
+  stroke: var(--lg-track);
+  stroke-dasharray: 520;
+  stroke-dashoffset: 520;
+  animation: track-draw 1.4s var(--nav-ease) 0.15s forwards;
+}
+
+@keyframes track-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+.nodes circle {
+  fill: var(--lg-chart);
+  stroke: var(--lg-track);
+  stroke-width: 2;
+}
+
+.goal circle {
+  fill: none;
+  stroke: var(--lg-track);
+  stroke-width: 2;
+  animation: goal-in 0.5s var(--nav-ease) 1.35s both;
+}
+
+.goal .goal-core {
+  fill: var(--lg-track);
+  stroke: none;
+}
+
+@keyframes goal-in {
+  from { opacity: 0; transform: scale(0.6); transform-origin: 496px 58px; }
+  to { opacity: 1; transform: scale(1); transform-origin: 496px 58px; }
+}
+
+.chart-caption {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex: 0 0 32px;
+  gap: 18px;
+  margin-top: 8px;
+  padding: 9px 2px;
+  border-top: 1px solid var(--lg-grid);
+  color: var(--lg-text-dim);
+  font-size: 11px;
 }
 
-.feature-title {
-  font-size: 13px;
-  font-weight: 500;
-  color: #dce7f8;
+.chart-caption span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.feature-desc {
+.chart-caption i {
+  display: inline-block;
+  width: 12px;
+  height: 2px;
+  background: var(--lg-track);
+}
+
+.chart-caption .key-node {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 2px solid var(--lg-track);
+  background: transparent;
+}
+
+.chart-caption .key-goal {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--lg-track);
+  background: transparent;
+}
+
+.chart-id {
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.6px;
+}
+
+.flow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--lg-grid);
+}
+
+.flow li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 12px 10px 0 0;
   font-size: 12px;
-  color: #8098bb;
-  line-height: 1.6;
-  margin-top: 4px;
+  color: var(--lg-text-soft);
+  white-space: nowrap;
+}
+
+.flow-no {
+  font-size: 11px;
+  color: var(--lg-track);
+  letter-spacing: 0.5px;
 }
 
 .brand-foot {
   font-size: 11px;
-  color: #5d7395;
-  letter-spacing: 0.5px;
+  color: var(--lg-text-dim);
+  align-self: end;
 }
 
+/* ---------------------------------------------------------------- 表单侧 */
+
 .form-side {
-  flex: 1;
+  flex: 1 1 48%;
+  min-width: 420px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
+  padding: var(--nav-space-4) 56px;
   background: var(--nav-panel);
 }
 
 .form-card {
-  width: 360px;
+  width: 100%;
+  max-width: 400px;
 }
 
 h2 {
-  font-size: 22px;
-  margin: 0 0 8px;
-  font-weight: 600;
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.3px;
+  margin: 0 0 6px;
+  color: var(--nav-ink);
 }
 
 .hint {
   color: var(--nav-text-muted);
   font-size: 13px;
-  margin: 0 0 26px;
+  margin: 0 0 var(--nav-space-4);
 }
 
 .submit-btn {
@@ -272,15 +415,14 @@ h2 {
 }
 
 .tips {
-  margin-top: 28px;
-  padding: 14px 16px;
-  border: 1px dashed var(--nav-border-strong);
-  border-radius: var(--nav-radius-sm);
-  background: #f8fafd;
+  margin-top: var(--nav-space-4);
+  padding-top: var(--nav-space-2);
+  border-top: 1px solid var(--nav-border);
 }
 
 .tips-title {
   font-size: 12px;
+  font-weight: 600;
   color: var(--nav-text-muted);
   margin-bottom: 8px;
 }
@@ -288,25 +430,70 @@ h2 {
 .tips-row {
   display: flex;
   justify-content: space-between;
+  gap: 12px;
   font-size: 12px;
   color: var(--nav-text-muted);
   line-height: 2;
 }
 
 .tips-row code {
-  font-family: Consolas, monospace;
-  color: #334155;
+  font-family: var(--nav-font-mono);
+  color: var(--nav-ink);
+  white-space: nowrap;
 }
 
 .copyright {
-  margin-top: 40px;
+  margin-top: var(--nav-space-4);
   font-size: 11px;
-  color: #b3bccb;
+  color: var(--nav-text-subtle);
 }
 
+.mono {
+  font-family: var(--nav-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- 响应式 */
+
 @media (max-width: 1100px) {
+  .brand-side { padding: var(--nav-space-3) var(--nav-space-3) var(--nav-space-2); }
+  .form-side { padding: var(--nav-space-3) var(--nav-space-3); }
+  .flow li { font-size: 11px; }
+}
+
+@media (max-width: 960px) {
+  .login-page { flex-direction: column; }
+
   .brand-side {
-    display: none;
+    flex: none;
+    min-width: 0;
+    width: 100%;
+    padding: 18px 24px;
+    border-right: none;
+    border-bottom: 1px solid var(--lg-grid);
+    gap: 12px;
   }
+
+  h1 { font-size: 20px; margin-bottom: 8px; }
+  .eyebrow { margin-bottom: 8px; }
+  .lede, .chart, .flow, .brand-foot { display: none; }
+
+  .form-side {
+    flex: 1;
+    min-width: 0;
+    padding: 36px 20px 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-side { padding: 14px 16px; }
+  .form-side { padding: 28px 16px 32px; }
+  h1 { font-size: 18px; }
+  .tips-row { flex-direction: column; gap: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track-path { animation: none; stroke-dashoffset: 0; }
+  .goal circle { animation: none; opacity: 1; }
 }
 </style>

@@ -62,6 +62,12 @@ const routes = [
         meta: { title: '轨迹回放', subtitle: '四区联动的逐帧回放工作台' },
       },
       {
+        path: 'sim',
+        name: 'sim',
+        component: () => import('@/views/sim/Workbench.vue'),
+        meta: { title: '交互式仿真', subtitle: '在场景里手动驾驶机器狗，实时看第一视角与轨迹' },
+      },
+      {
         path: 'reports',
         name: 'reports',
         component: () => import('@/views/report/Center.vue'),

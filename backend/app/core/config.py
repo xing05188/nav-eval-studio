@@ -44,6 +44,28 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "scan_exclude": ["train", "envdrop", "scalevln"],
         "running_grace_s": 600,
     },
+    "sim": {
+        "scene_root": "",
+        "gpu_ids": [0],
+        "tick_hz": 4.0,
+        "render_hz": 15.0,
+        "stream_hz": 20.0,
+        "jpeg_quality": 82,
+        "max_clients": 4,
+        "idle_timeout_s": 900,
+        "free_mem_warn_mb": 4096,
+    },
+    "policy": {
+        "enabled": True,
+        "model_profile": "",
+        "gpu_id": None,
+        "min_free_mem_mb": 12000,
+        "num_frames": 8,
+        "num_history": 8,
+        "num_future_steps": 4,
+        "infer_timeout_s": 30,
+        "idle_pause_s": 60,
+    },
 }
 
 ALL_IMPORT_SECTIONS = ("datasets", "scenes", "models", "results", "assets")
@@ -105,6 +127,40 @@ class ImportConfig:
 
 
 @dataclass
+class SimConfig:
+    """交互式仿真：场景根目录与渲染/会话参数（全部有默认值，缺省也能启动）。"""
+
+    scene_root: Path | None = None
+    gpu_ids: list[int] = field(default_factory=lambda: [0])
+    tick_hz: float = 4.0
+    render_hz: float = 15.0
+    stream_hz: float = 20.0
+    jpeg_quality: int = 82
+    max_clients: int = 4
+    idle_timeout_s: int = 900
+    free_mem_warn_mb: int = 4096
+
+
+@dataclass
+class PolicyConfig:
+    """模型驾驶：一次 forward 出几个动作、显存门槛、超时。
+
+    全部有默认值——`enabled: false` 时接口直接拒绝，页面也不会显示入口，
+    手动驾驶完全不受影响。
+    """
+
+    enabled: bool = True
+    model_profile: str = ""
+    gpu_id: int | None = None
+    min_free_mem_mb: int = 12000
+    num_frames: int = 8
+    num_history: int = 8
+    num_future_steps: int = 4
+    infer_timeout_s: float = 30.0
+    idle_pause_s: float = 60.0
+
+
+@dataclass
 class Settings:
     """进程内全局配置。"""
 
@@ -116,6 +172,8 @@ class Settings:
     logging: LoggingConfig
     demo: DemoConfig
     imports: ImportConfig = field(default_factory=ImportConfig)
+    sim: SimConfig = field(default_factory=SimConfig)
+    policy: PolicyConfig = field(default_factory=PolicyConfig)
     metrics: dict[str, Any] = field(default_factory=dict)
     models: dict[str, Any] = field(default_factory=dict)
     raw: dict[str, Any] = field(default_factory=dict)
@@ -196,6 +254,52 @@ def _load_import_config(data: dict[str, Any]) -> ImportConfig:
     )
 
 
+def _load_sim_config(data: dict[str, Any]) -> SimConfig:
+    """组装仿真配置；场景根目录留空时由 episode 解析按数据集元数据回退。"""
+    raw = data.get("sim", {}) or {}
+    scene_root = str(raw.get("scene_root") or "").strip()
+    gpu_ids: list[int] = []
+    for item in raw.get("gpu_ids") or [0]:
+        try:
+            gpu_ids.append(int(item))
+        except (TypeError, ValueError):
+            continue
+    return SimConfig(
+        scene_root=_resolve(scene_root) if scene_root else None,
+        gpu_ids=gpu_ids or [0],
+        tick_hz=float(raw.get("tick_hz", 4.0)),
+        render_hz=float(raw.get("render_hz", 15.0)),
+        stream_hz=float(raw.get("stream_hz", 20.0)),
+        jpeg_quality=max(40, min(98, int(raw.get("jpeg_quality", 82)))),
+        max_clients=max(1, int(raw.get("max_clients", 4))),
+        idle_timeout_s=max(0, int(raw.get("idle_timeout_s", 900))),
+        free_mem_warn_mb=max(0, int(raw.get("free_mem_warn_mb", 4096))),
+    )
+
+
+def _load_policy_config(data: dict[str, Any]) -> PolicyConfig:
+    """组装模型驾驶配置；gpu_id 留空表示自动挑空闲显存最多的一张卡。"""
+    raw = data.get("policy", {}) or {}
+    gpu_raw = raw.get("gpu_id", None)
+    gpu_id: int | None = None
+    if gpu_raw is not None and str(gpu_raw).strip() != "":
+        try:
+            gpu_id = int(gpu_raw)
+        except (TypeError, ValueError):
+            gpu_id = None
+    return PolicyConfig(
+        enabled=bool(raw.get("enabled", True)),
+        model_profile=str(raw.get("model_profile") or "").strip(),
+        gpu_id=gpu_id,
+        min_free_mem_mb=max(0, int(raw.get("min_free_mem_mb", 12000))),
+        num_frames=max(1, int(raw.get("num_frames", 8))),
+        num_history=max(1, int(raw.get("num_history", 8))),
+        num_future_steps=max(1, int(raw.get("num_future_steps", 4))),
+        infer_timeout_s=float(raw.get("infer_timeout_s", 30)),
+        idle_pause_s=float(raw.get("idle_pause_s", 60)),
+    )
+
+
 def load_settings(config_path: str | Path | None = None) -> Settings:
     """读取配置并组装为 Settings。"""
     path = Path(config_path) if config_path else Path(
@@ -237,6 +341,8 @@ def load_settings(config_path: str | Path | None = None) -> Settings:
             sample_results_dir=_resolve(data["demo"]["sample_results_dir"]),
         ),
         imports=_load_import_config(data),
+        sim=_load_sim_config(data),
+        policy=_load_policy_config(data),
         metrics=_load_yaml(CONFIG_DIR / "metrics.yaml"),
         models=_load_yaml(CONFIG_DIR / "models.yaml"),
         raw=data,

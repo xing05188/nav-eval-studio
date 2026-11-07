@@ -3,8 +3,8 @@
 profiles:
   - name: StreamVLN-R2R-RxR-v1.3
     family: streamvln
-    code_path: /mnt/workspace/StreamVLN-kaggle-backup
-    weights_path: /mnt/workspace/StreamVLN-kaggle-backup/checkpoints/StreamVLN_Video_qwen_1_5_r2r_rxr_envdrop_scalevln_v1_3
+    code_path: /home/zjr/StreamVLN-kaggle-backup
+    weights_path: /home/zjr/StreamVLN-kaggle-backup/checkpoints/StreamVLN_Video_qwen_1_5_r2r_rxr_envdrop_scalevln_v1_3
     entry: python -m streamvln.streamvln_eval
     needs_gpu: true
     allowed_inputs: [rgb, depth, pose, action]

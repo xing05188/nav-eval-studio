@@ -1,5 +1,5 @@
 <template>
-  <div class="layout">
+  <div class="layout" :class="{ 'is-collapsed': collapsed }">
     <aside class="sidebar">
       <div class="brand">
         <img class="brand-mark" src="/favicon.png" alt="NavEval Studio" />
@@ -41,6 +41,10 @@
           <el-icon><Position /></el-icon>
           <span>轨迹回放</span>
         </el-menu-item>
+        <el-menu-item index="/sim">
+          <el-icon><Aim /></el-icon>
+          <span>交互式仿真</span>
+        </el-menu-item>
 
         <div class="menu-group">结果</div>
         <el-menu-item index="/analysis">
@@ -79,6 +83,15 @@
 
     <div class="main">
       <header class="topbar">
+        <button
+          class="collapse-btn"
+          type="button"
+          :aria-label="collapsed ? '展开侧边栏' : '收起侧边栏'"
+          :aria-expanded="!collapsed"
+          @click="toggleSidebar"
+        >
+          <el-icon><Fold v-if="!collapsed" /><Expand v-else /></el-icon>
+        </button>
         <div class="crumb">
           <span class="crumb-root">具身导航多模态流式评测与诊断软件</span>
           <el-icon class="crumb-sep"><ArrowRight /></el-icon>
@@ -114,13 +127,35 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { Expand, Fold } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/store/auth'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+
+const SIDEBAR_KEY = 'naveval_sidebar_collapsed'
+
+function readCollapsed() {
+  try {
+    return localStorage.getItem(SIDEBAR_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+const collapsed = ref(readCollapsed())
+
+function toggleSidebar() {
+  collapsed.value = !collapsed.value
+  try {
+    localStorage.setItem(SIDEBAR_KEY, collapsed.value ? '1' : '0')
+  } catch {
+    // 隐私模式下持久化失败不影响本次折叠
+  }
+}
 
 const activeMenu = computed(() => route.path)
 const initials = computed(() => (auth.displayName || 'NA').slice(0, 2).toUpperCase())
@@ -138,13 +173,18 @@ async function handleCommand(command) {
 
 <style scoped>
 .layout {
+  --sidebar-w: var(--nav-sidebar-width);
   display: flex;
   min-height: 100vh;
 }
 
+.layout.is-collapsed {
+  --sidebar-w: var(--nav-sidebar-collapsed);
+}
+
 .sidebar {
-  width: 232px;
-  flex: 0 0 232px;
+  width: var(--sidebar-w);
+  flex: 0 0 var(--sidebar-w);
   background: var(--nav-sidebar);
   display: flex;
   flex-direction: column;
@@ -153,6 +193,8 @@ async function handleCommand(command) {
   height: 100vh;
   z-index: 12;
   border-right: 1px solid #1d2f4c;
+  overflow: hidden;
+  transition: width 200ms ease-in-out, flex-basis 200ms ease-in-out;
 }
 
 .brand {
@@ -193,13 +235,14 @@ async function handleCommand(command) {
 }
 
 .menu :deep(.el-menu-item) {
-  height: 38px;
-  line-height: 38px;
-  border-radius: var(--nav-radius-xs);
+  height: 36px;
+  line-height: 36px;
+  border-radius: var(--nav-radius-sm);
   margin-bottom: 2px;
   padding-left: 12px !important;
   font-size: 13px;
   font-weight: 500;
+  position: relative;
   transition: background-color var(--nav-duration) var(--nav-ease),
     color var(--nav-duration) var(--nav-ease);
 }
@@ -209,9 +252,9 @@ async function handleCommand(command) {
 }
 
 .menu :deep(.el-menu-item.is-active) {
-  background: var(--nav-accent);
+  background: rgba(47, 111, 237, 0.2);
   color: #fff;
-  box-shadow: inset 3px 0 0 #a9c7ff;
+  box-shadow: inset 3px 0 0 var(--nav-accent);
 }
 
 .menu :deep(.el-menu-item.is-active .el-icon) {
@@ -227,9 +270,9 @@ async function handleCommand(command) {
   align-items: center;
   gap: 10px;
   color: #8296b2;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.8px;
-  padding: 15px 12px 6px;
+  padding: 24px 12px 6px;
 }
 
 .menu-group::after {
@@ -272,6 +315,28 @@ async function handleCommand(command) {
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+.collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  margin-right: 4px;
+  border: 1px solid var(--nav-border);
+  border-radius: var(--nav-radius-xs);
+  background: var(--nav-panel);
+  color: var(--nav-text-muted);
+  cursor: pointer;
+  transition: background-color var(--nav-duration) var(--nav-ease),
+    color var(--nav-duration) var(--nav-ease);
+}
+
+.collapse-btn:hover {
+  background: var(--nav-accent-soft);
+  color: var(--nav-accent-deep);
 }
 
 .topbar {
@@ -358,11 +423,52 @@ async function handleCommand(command) {
   overflow-y: auto;
 }
 
+/* 折叠为 64px 图标轨；文字用 sr-only 保留给读屏，而非 display:none */
+.layout.is-collapsed .brand {
+  justify-content: center;
+  padding: 14px 0;
+}
+
+.layout.is-collapsed .brand-text,
+.layout.is-collapsed .menu-group,
+.layout.is-collapsed .sidebar-footer > span:not(.dot) {
+  display: none;
+}
+
+.layout.is-collapsed .menu {
+  padding: 8px;
+}
+
+.layout.is-collapsed .menu :deep(.el-menu-item) {
+  justify-content: center;
+  padding: 0 !important;
+}
+
+.layout.is-collapsed .menu :deep(.el-menu-item span) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.layout.is-collapsed .sidebar-footer {
+  justify-content: center;
+  padding: 13px 0;
+}
+
 /* 小屏：侧边栏收为图标导航，与全局 768px 断点一致 */
 @media (max-width: 768px) {
-  .sidebar {
-    width: 64px;
-    flex-basis: 64px;
+  .layout {
+    --sidebar-w: var(--nav-sidebar-collapsed);
+  }
+
+  .collapse-btn {
+    display: none;
   }
 
   .brand {

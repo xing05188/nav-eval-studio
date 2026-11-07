@@ -33,19 +33,29 @@
   --nav-border: #e2e9f2;
   --nav-border-strong: #cfdae8;
 
-  /* 形状：单一圆角梯度，浮层才用阴影 */
-  --nav-radius: 8px;
-  --nav-radius-sm: 6px;
-  --nav-radius-xs: 4px;
+  /* 布局尺度：8pt 间距 + 12 列栅格（2026 主流仪表盘规格） */
+  --nav-space-1: 8px;
+  --nav-space-2: 16px;
+  --nav-space-3: 24px;
+  --nav-space-4: 32px;
+  --nav-sidebar-width: 256px;
+  --nav-sidebar-collapsed: 64px;
+  --nav-content-max: 1680px;
+  --nav-grid-gap: 24px;
+
+  /* 形状：外层卡片与内部元素使用不同圆角，避免同圆角嵌套 */
+  --nav-radius: 12px;
+  --nav-radius-sm: 8px;
+  --nav-radius-xs: 6px;
   --nav-shadow-sm: 0 1px 3px rgba(17, 34, 64, 0.06);
   --nav-shadow-md: 0 12px 32px rgba(17, 34, 64, 0.14);
-  --nav-duration: 160ms;
-  --nav-ease: ease-out;
+  --nav-duration: 200ms;
+  --nav-ease: ease-in-out;
   --nav-header-height: 56px;
 
-  /* 字阶 */
-  --nav-font-display: 20px;
-  --nav-font-title: 14px;
+  /* 字阶模数：12 / 13(密集表格) / 16 / 24 / 32 */
+  --nav-font-display: 24px;
+  --nav-font-title: 15px;
   --nav-font-body: 13px;
   --nav-font-caption: 12px;
   --nav-font-mono: 'SFMono-Regular', 'Fira Code', Consolas, 'Liberation Mono', Menlo, monospace;
@@ -61,8 +71,8 @@
   --el-color-success: #15803d;
   --el-color-warning: #b45309;
   --el-color-danger: #b91c1c;
-  --el-border-radius-base: 6px;
-  --el-border-radius-small: 4px;
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
   --el-border-color: #e2e9f2;
   --el-border-color-light: #eef2f8;
   --el-border-color-lighter: #f2f5fa;
@@ -137,7 +147,10 @@ body {
 /* ------------------------------------------------------------ 页面骨架 */
 
 .page {
-  padding: 24px 28px 40px;
+  width: 100%;
+  max-width: var(--nav-content-max);
+  margin: 0 auto;
+  padding: var(--nav-space-3) var(--nav-space-3) var(--nav-space-4);
 }
 
 .page-header {
@@ -181,8 +194,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 48px;
-  padding: 10px 20px;
+  min-height: 52px;
+  padding: 12px 20px;
   border-bottom: 1px solid var(--nav-border);
   background: #fbfcfe;
   border-radius: var(--nav-radius) var(--nav-radius) 0 0;
@@ -196,7 +209,7 @@ body {
 }
 
 .panel-body {
-  padding: 18px 20px;
+  padding: 20px;
 }
 
 .panel > .el-table:last-child {
@@ -234,6 +247,20 @@ body {
   display: grid;
   gap: 16px;
 }
+
+/* 12 列内容栅格：整表 1/-1、主内容 8 + 侧栏 4、四等分 KPI 各 3 列 */
+.page-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--nav-grid-gap);
+  align-items: start;
+}
+
+.page-grid > .span-3 { grid-column: span 3; }
+.page-grid > .span-4 { grid-column: span 4; }
+.page-grid > .span-6 { grid-column: span 6; }
+.page-grid > .span-8 { grid-column: span 8; }
+.page-grid > .span-12 { grid-column: span 12; }
 
 .total {
   margin-left: auto;
@@ -514,26 +541,32 @@ a:focus-visible,
   font-weight: 500;
 }
 
-/* ------------------------------------------------------------ 响应式：1440 / 1024 / 768 / 375 */
+/* ------------------------------------------------------------ 响应式：1440 / 1280 / 1024 / 768 / 480 */
 
 @media (max-width: 1280px) {
-  .page { padding: 20px 22px 34px; }
+  .page { padding: var(--nav-space-2) var(--nav-space-3) var(--nav-space-4); }
 }
 
 @media (max-width: 1024px) {
-  .page { padding: 18px 18px 30px; }
-  .panel-header { padding: 10px 16px; }
+  .page { padding: var(--nav-space-2) var(--nav-space-2) var(--nav-space-3); }
+  .panel-header { padding: 12px 16px; }
   .panel-body { padding: 16px; }
+  .page-grid { gap: var(--nav-space-2); }
+  .page-grid > .span-3 { grid-column: span 6; }
+  .page-grid > .span-4,
+  .page-grid > .span-8 { grid-column: span 12; }
 }
 
 @media (max-width: 768px) {
-  .page { padding: 16px 14px 28px; }
+  .page { padding: var(--nav-space-2) var(--nav-space-2) var(--nav-space-3); }
   .page-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: var(--nav-space-1);
   }
-  .page-title { font-size: 18px; }
+  .page-title { font-size: 20px; }
+  .page-grid > .span-3,
+  .page-grid > .span-6 { grid-column: span 12; }
   .el-dialog__body,
   .el-dialog__header,
   .el-dialog__footer { padding-left: 16px; padding-right: 16px; }
@@ -541,7 +574,7 @@ a:focus-visible,
 }
 
 @media (max-width: 480px) {
-  .page { padding: 14px 12px 24px; }
+  .page { padding: var(--nav-space-1) 12px var(--nav-space-3); }
   .panel-header { flex-wrap: wrap; }
   .el-button { min-height: 32px; }
 }

@@ -8,8 +8,13 @@
       <el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
     </div>
 
-    <div class="stats">
-      <div v-for="item in stats" :key="item.label" class="stat-card panel">
+    <div class="stats page-grid">
+      <div
+        v-for="(item, index) in stats"
+        :key="item.label"
+        class="stat-card panel span-3"
+        :class="{ 'stat-primary': index === 0 }"
+      >
         <div class="stat-icon" :style="{ background: item.bg, color: item.color }">
           <el-icon :size="18"><component :is="item.icon" /></el-icon>
         </div>
@@ -21,8 +26,8 @@
       </div>
     </div>
 
-    <div class="body-grid">
-      <section class="panel">
+    <div class="body-grid page-grid">
+      <section class="panel span-8">
         <div class="panel-header">
           <span class="panel-title">最近评测任务</span>
           <div class="queue-chips">
@@ -77,7 +82,7 @@
         </el-table>
       </section>
 
-      <div class="side">
+      <div class="side span-4">
         <section class="panel">
           <div class="panel-header">
             <span class="panel-title">存储与算力</span>
@@ -256,17 +261,24 @@ onMounted(load)
 
 <style scoped>
 .stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: var(--nav-grid-gap);
 }
 
 .stat-card {
   display: flex;
   gap: 14px;
-  padding: 18px;
+  padding: 16px;
   align-items: flex-start;
+}
+
+.stat-primary {
+  background: #f4f8ff;
+  box-shadow: inset 3px 0 0 var(--nav-accent);
+}
+
+.stat-primary .stat-value {
+  font-size: 32px;
+  color: var(--nav-accent-deep);
 }
 
 .stat-icon {
@@ -285,10 +297,11 @@ onMounted(load)
 }
 
 .stat-value {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 600;
   line-height: 1.3;
   margin-top: 2px;
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-foot {
@@ -298,9 +311,6 @@ onMounted(load)
 }
 
 .body-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 2.1fr) minmax(300px, 1fr);
-  gap: 16px;
   align-items: start;
 }
 
@@ -367,7 +377,7 @@ onMounted(load)
 .side {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--nav-grid-gap);
 }
 
 .kv {
@@ -446,11 +456,19 @@ onMounted(load)
 }
 
 @media (max-width: 1280px) {
-  .stats {
-    grid-template-columns: repeat(2, 1fr);
+  .stats > .span-3 {
+    grid-column: span 6;
   }
-  .body-grid {
-    grid-template-columns: 1fr;
+
+  .body-grid > .span-8,
+  .body-grid > .side {
+    grid-column: span 12;
+  }
+}
+
+@media (max-width: 768px) {
+  .stats > .span-3 {
+    grid-column: span 12;
   }
 }
 </style>
