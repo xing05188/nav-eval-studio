@@ -37,6 +37,21 @@
             :label="`#${item.episode_key} · ${item.scene_id}`"
           />
         </el-select>
+        <el-select
+          v-model="gpuId"
+          placeholder="GPU 跟随配置"
+          class="gpu-select"
+          clearable
+          :disabled="locked || !canControl || !gpuOptions.length"
+          @visible-change="(visible) => visible && loadGpus()"
+        >
+          <el-option
+            v-for="item in gpuOptions"
+            :key="item.index"
+            :value="item.index"
+            :label="gpuOptionLabel(item)"
+          />
+        </el-select>
         <el-button
           type="primary"
           :icon="VideoPlay"
@@ -87,16 +102,45 @@
       <section class="panel viewer-panel">
         <div class="panel-header">
           <span class="panel-title">仿真画面 · 第一视角 ｜ 俯视轨迹</span>
-          <span class="panel-meta">
-            <template v-if="status === 'ready'">
-              {{ state.fps ? `${state.fps.toFixed(0)} fps` : '实时' }} · 步数 {{ state.steps }}
-            </template>
-            <template v-else>{{ statusText }}</template>
-          </span>
+          <div class="panel-tools">
+            <span class="panel-meta">
+              <template v-if="status === 'ready'">
+                {{ state.fps ? `${state.fps.toFixed(0)} fps` : '实时' }} · 步数 {{ state.steps }}
+                <template v-if="state.gpu_id !== null && state.gpu_id !== undefined">
+                  · GPU{{ state.gpu_id }}
+                </template>
+                <template v-if="state.clients > 0">· 观看 {{ state.clients }}</template>
+              </template>
+              <template v-else>{{ statusText }}</template>
+            </span>
+            <span v-if="recordText" class="panel-meta record-meta">录制 {{ recordText }}</span>
+            <span class="panel-meta">第三视角</span>
+            <el-switch v-model="pipOn" size="small" :disabled="!pipEnabled" @change="togglePip" />
+            <span class="panel-meta">机器狗</span>
+            <el-switch v-model="robotOn" size="small" :disabled="!robotEnabled" @change="toggleRobot" />
+            <el-button
+              size="small"
+              :icon="Download"
+              :loading="exportBusy || downloading"
+              :disabled="!exportEnabled"
+              @click="onExport"
+            >
+              {{ exportLabel }}
+            </el-button>
+          </div>
         </div>
 
         <div class="stage">
-          <img v-if="streamSrc" :key="streamKey" class="stream" :src="streamSrc" alt="机器狗第一视角画面" />
+          <!-- 不要用 :key 重建 <img>：重建会把最后一帧丢掉，断流瞬间整块变黑；
+               只换 src（带 k 参数）时浏览器会保留旧帧直到新流出图 -->
+          <img
+            v-if="streamSrc"
+            class="stream"
+            :src="streamSrc"
+            alt="机器狗第一视角画面"
+            @error="onStreamError"
+            @load="onStreamLoad"
+          />
           <div v-if="modelDriving" class="stage-badge">
             <span class="stage-dot" />模型驾驶中 · {{ latencyText }}
           </div>
@@ -118,6 +162,14 @@
             <el-icon class="stage-icon"><SwitchButton /></el-icon>
             <p>会话已停止，点「启动仿真」重新开始</p>
           </div>
+          <div v-else-if="streamError" class="stage-layer stage-error">
+            <el-icon class="stage-icon"><WarningFilled /></el-icon>
+            <p>{{ streamError }}</p>
+            <div class="stage-actions">
+              <el-button size="small" :icon="Refresh" @click="retryStream">重新连接画面</el-button>
+              <el-button size="small" text @click="reloadPage">刷新页面</el-button>
+            </div>
+          </div>
         </div>
 
         <div class="policy-bar">
@@ -125,6 +177,22 @@
             <el-icon><MagicStick /></el-icon>
             模型驾驶
           </span>
+          <el-select
+            v-model="policyGpuId"
+            size="small"
+            class="policy-gpu-select"
+            placeholder="GPU 默认"
+            clearable
+            :disabled="!canControl || !gpuOptions.length || policyBusy"
+            @visible-change="(visible) => visible && loadGpus()"
+          >
+            <el-option
+              v-for="item in gpuOptions"
+              :key="item.index"
+              :value="item.index"
+              :label="`GPU${item.index}`"
+            />
+          </el-select>
           <el-select
             v-model="modelId"
             size="small"
@@ -189,6 +257,15 @@
           <el-button class="ctrl-btn" :icon="Back" :disabled="!resetEnabled" @click="act('reset', true)">
             回起点
           </el-button>
+          <el-button
+            class="ctrl-btn"
+            :class="{ 'is-oracle': state.oracle }"
+            :icon="Position"
+            :disabled="!oracleEnabled"
+            @click="toggleOracle"
+          >
+            {{ state.oracle ? '停止 Oracle' : 'Oracle 走一遍' }}
+          </el-button>
         </div>
         <p v-if="!canControl" class="ctrl-hint">当前角色为只读，仅可查看画面与读数。</p>
         <p v-else class="ctrl-hint">
@@ -213,10 +290,12 @@
             <span class="readout-value">{{ yawText }}<i>deg</i></span>
           </div>
           <div class="readout">
+            <span class="readout-label">测地 / SPL</span>
+            <span class="readout-value">{{ Number(state.geodesic || 0).toFixed(2) }}<i>m · {{ splText }}</i></span>
+          </div>
+          <div class="readout">
             <span class="readout-label">动作来源</span>
-            <span class="readout-value">
-              {{ state.last_action_source === 'model' ? '模型' : '手动' }}<i>队列 {{ state.pending }}</i>
-            </span>
+            <span class="readout-value">{{ sourceText }}<i>队列 {{ state.pending }}</i></span>
           </div>
           <div class="readout readout-wide">
             <span class="readout-label">场景</span>
@@ -239,7 +318,9 @@ import { ElMessage } from 'element-plus'
 import {
   Aim,
   Back,
+  Download,
   MagicStick,
+  Position,
   Refresh,
   SwitchButton,
   VideoPlay,
@@ -260,11 +341,18 @@ const starting = ref(false)
 const loadingEpisodes = ref(false)
 const streamKey = ref(0)
 const streamStuck = ref(false)
+const streamError = ref('')
 const pressed = reactive(new Set())
 
 const models = ref([])
 const modelId = ref(null)
 const loadingModels = ref(false)
+
+// GPU 选择：null = 跟随配置（sim.gpu_ids[0] / policy.gpu_id），选中值只对下一次启动生效
+const gpus = ref([])
+const gpuId = ref(null)
+const policyGpuId = ref(null)
+const gpuOptions = computed(() => (gpus.value || []).filter((item) => item.index !== undefined))
 
 const state = reactive({
   status: 'idle',
@@ -282,7 +370,36 @@ const state = reactive({
   warning: null,
   pending: 0,
   last_action_source: 'manual',
+  geodesic: 0,
+  ne: 0,
+  shortest: 0,
+  spl: 0,
+  success: false,
+  oracle: false,
+  pip: false,
+  pip_available: false,
+  robot: false,
+  robot_available: false,
+  gpu_id: null,
+  clients: 0,
 })
+
+// 第三视角画中画（后端 state.pip / state.pip_available）
+const pipOn = ref(true)
+// 画中画里的机器狗模型（后端 state.robot / state.robot_available）
+const robotOn = ref(true)
+
+// 会话录制与 mp4 导出（后端 state.recording）
+const recording = reactive({
+  frames: 0,
+  seconds: 0,
+  fps: 0,
+  max_frames: 0,
+  dropped: 0,
+  export: { status: 'idle', progress: 0, frames: 0, encoded: 0, filename: '', size_bytes: 0, message: '' },
+})
+const downloading = ref(false)
+let lastExportStatus = 'idle'
 
 // 模型驾驶状态（后端 GET /api/sim/state 的 policy 字段）
 const policy = reactive({
@@ -305,6 +422,10 @@ const locked = computed(() => busy.value)
 const controlsEnabled = computed(() => canControl.value && state.status === 'ready' && !state.done)
 // 停下之后仍允许回起点重新开一局，所以复位不受 state.done 限制
 const resetEnabled = computed(() => canControl.value && state.status === 'ready')
+// 已停止的局不能再启动 oracle（后端会 409），但允许手动点「停止 Oracle」
+const oracleEnabled = computed(
+  () => canControl.value && state.status === 'ready' && (!state.done || state.oracle),
+)
 
 const selectedEpisode = computed(
   () => episodes.value.find((item) => item.id === episodeId.value) || null,
@@ -324,6 +445,39 @@ const viewerWarning = computed(() => {
   return state.warning || ''
 })
 const yawText = computed(() => Number(state.pose?.yaw_deg || 0).toFixed(0))
+// SPL 只在拿到最短路径长度时才有意义（官方 geodesic 或 navmesh 现算）
+const splText = computed(() =>
+  Number(state.shortest || 0) > 0 ? Number(state.spl || 0).toFixed(2) : '—',
+)
+const SOURCE_TEXT = { model: '模型', oracle: 'Oracle', manual: '手动' }
+const sourceText = computed(() => SOURCE_TEXT[state.last_action_source] || '手动')
+
+// ---- 第三视角画中画 / 录制导出 ----
+const pipEnabled = computed(
+  () => canControl.value && state.status === 'ready' && state.pip_available,
+)
+const robotEnabled = computed(
+  () => canControl.value && state.status === 'ready' && state.robot_available,
+)
+const recordText = computed(() => {
+  const seconds = Number(recording.seconds || 0)
+  if (!recording.frames || !seconds) return ''
+  const mm = Math.floor(seconds / 60)
+  const ss = Math.round(seconds % 60)
+  const limit = recording.max_frames ? ` · ${recording.frames}/${recording.max_frames} 帧` : ''
+  return `${mm}:${String(ss).padStart(2, '0')}${limit}`
+})
+const exportBusy = computed(() => recording.export.status === 'encoding')
+const exportReady = computed(() => recording.export.status === 'ready')
+// 停会话之后仍可导出（后端保留了上一局的帧目录），所以不看 state.status
+const exportEnabled = computed(
+  () => canControl.value && recording.frames > 0 && !exportBusy.value,
+)
+const exportLabel = computed(() => {
+  if (exportBusy.value) return `导出中 ${Math.round((recording.export.progress || 0) * 100)}%`
+  if (exportReady.value) return '下载 mp4'
+  return '导出 mp4'
+})
 
 // ---- 模型驾驶 ----
 const policyBusy = computed(() => ['loading', 'ready', 'running', 'paused'].includes(policy.status))
@@ -406,6 +560,20 @@ function pointText(point) {
   return `${Number(point[0]).toFixed(1)}, ${Number(point[2]).toFixed(1)}`
 }
 
+// el-select 的 clearable 清空后给的是 ''，后端字段是 int|null，这里统一成 null
+function gpuValue(value) {
+  return value === '' || value === undefined || value === null ? null : value
+}
+
+// 选项上直接给"还剩多少显存"，换卡时不用再去系统页比对
+function gpuOptionLabel(item) {
+  const total = Number(item.memory_total_mb || 0)
+  const used = Number(item.memory_used_mb || 0)
+  if (!total) return `GPU${item.index}`
+  const free = Math.max(0, total - used) / 1024
+  return `GPU${item.index} · 空闲 ${free.toFixed(1)}G`
+}
+
 function applyState(data) {
   Object.assign(state, {
     status: data.status,
@@ -423,17 +591,95 @@ function applyState(data) {
     warning: data.warning || null,
     pending: data.pending || 0,
     last_action_source: data.last_action_source || 'manual',
+    geodesic: data.geodesic || 0,
+    ne: data.ne || 0,
+    shortest: data.shortest || 0,
+    spl: data.spl || 0,
+    success: Boolean(data.success),
+    oracle: Boolean(data.oracle),
+    pip: Boolean(data.pip),
+    pip_available: Boolean(data.pip_available),
+    robot: Boolean(data.robot),
+    robot_available: Boolean(data.robot_available),
+    gpu_id: data.gpu_id ?? null,
+    clients: data.clients || 0,
   })
+  pipOn.value = Boolean(data.pip)
+  robotOn.value = Boolean(data.robot)
+  if (data.recording) {
+    Object.assign(recording, {
+      frames: data.recording.frames || 0,
+      seconds: data.recording.seconds || 0,
+      fps: data.recording.fps || 0,
+      max_frames: data.recording.max_frames || 0,
+      dropped: data.recording.dropped || 0,
+    })
+    const job = data.recording.export || {}
+    Object.assign(recording.export, {
+      status: job.status || 'idle',
+      progress: job.progress || 0,
+      frames: job.frames || 0,
+      encoded: job.encoded || 0,
+      filename: job.filename || '',
+      size_bytes: job.size_bytes || 0,
+      message: job.message || '',
+    })
+    // 编码是后台线程，等到这里的状态跳成 ready 再提示一次，用户不用盯着进度条
+    if (recording.export.status === 'ready' && lastExportStatus !== 'ready') {
+      ElMessage.success(`mp4 导出完成（${(recording.export.size_bytes / 1024 / 1024).toFixed(1)} MB），点「下载 mp4」保存`)
+    }
+    lastExportStatus = recording.export.status
+  }
   if (data.policy) Object.assign(policy, data.policy)
   else Object.assign(policy, { status: 'off', paused: false, message: '' })
   if (data.frame_seq !== lastSeq) {
     lastSeq = data.frame_seq || 0
     lastSeqAt = Date.now()
     streamStuck.value = false
+    streamError.value = ''
+    reconnectCount = 0            // 帧恢复了，重连计数归零
   }
 }
 
-const refresh = () => api.simState().then(applyState).catch(console.error)
+// 轮询去重：接口慢的时候不要把一个请求堆成十几个（浏览器只有 6 条连接）
+let refreshing = false
+const refresh = () => {
+  if (refreshing) return
+  refreshing = true
+  api
+    .simState()
+    .then(applyState)
+    .catch(() => {})          // 拦截器已经弹过提示，这里不再刷屏
+    .finally(() => {
+      refreshing = false
+    })
+}
+
+// 画面断了：保留最后一帧，只给提示 + 手动重连，不偷偷无限重连把连接占满
+function onStreamError() {
+  streamError.value = '画面连接失败：可能是同时观看人数已满或会话已结束，请点下面按钮重连'
+  streamStuck.value = false
+}
+
+function onStreamLoad() {
+  streamError.value = ''
+  streamStuck.value = false
+  reconnectCount = 0
+  lastSeqAt = Date.now()
+}
+
+// 浏览器对同一域名只有 6 条连接：卡死后重连按钮可能也发不出去，刷新页面能一次性回收
+function reloadPage() {
+  window.location.reload()
+}
+
+function retryStream() {
+  streamError.value = ''
+  streamStuck.value = false
+  reconnectCount = 0
+  lastSeqAt = Date.now()
+  streamKey.value += 1
+}
 
 function loadDatasets() {
   api
@@ -495,7 +741,7 @@ function startSim() {
   if (!episodeId.value) return
   starting.value = true
   api
-    .simStart({ episode_id: episodeId.value })
+    .simStart({ episode_id: episodeId.value, gpu_id: gpuValue(gpuId.value) })
     .then((data) => {
       lastSeq = -1
       lastSeqAt = Date.now()
@@ -513,8 +759,26 @@ function startSim() {
         frame_seq: 0,
         message: '',
         warning: data.warning || null,
+        pending: 0,
+        last_action_source: 'manual',
+        geodesic: 0,
+        ne: 0,
+        shortest: 0,
+        spl: 0,
+        success: false,
+        oracle: false,
+        gpu_id: data.gpu_id ?? null,
       })
+      streamError.value = ''
+      streamStuck.value = false
+      reconnectCount = 0
       streamKey.value += 1
+      // 新会话是新的录制目录，先把上一局的帧数/导出状态清掉
+      Object.assign(recording, { frames: 0, seconds: 0, dropped: 0 })
+      Object.assign(recording.export, {
+        status: 'idle', progress: 0, frames: 0, encoded: 0, filename: '', size_bytes: 0, message: '',
+      })
+      lastExportStatus = 'idle'
     })
     .catch((error) => {
       console.error(error)
@@ -541,10 +805,19 @@ function loadModels() {
     })
 }
 
+function loadGpus() {
+  api
+    .gpus()
+    .then((data) => {
+      gpus.value = Array.isArray(data) ? data : data?.items || []
+    })
+    .catch(console.error)
+}
+
 function startPolicy() {
   if (!policyCanStart.value) return
   api
-    .simPolicyStart({ model_id: modelId.value })
+    .simPolicyStart({ model_id: modelId.value, gpu_id: gpuValue(policyGpuId.value) })
     .then((data) => {
       Object.assign(policy, data.policy || { status: 'loading' })
       if (data.warning) ElMessage.warning(data.warning)
@@ -562,7 +835,94 @@ function stopPolicy() {
     .simPolicyStop()
     .then(() => {
       Object.assign(policy, { status: 'off', paused: false, message: '', infer_count: 0 })
-      ElMessage.success('模型已停止，显存已释放')
+      ElMessage.success('模型已停止，正在后台释放显存')
+      refresh()
+    })
+    .catch(console.error)
+}
+
+function toggleOracle() {
+  const next = !state.oracle
+  api
+    .simOracle(next)
+    .then((data) => {
+      Object.assign(state, {
+        oracle: Boolean(data.oracle),
+        last_action_source: data.last_action_source || state.last_action_source,
+        done: Boolean(data.done),
+        steps: data.steps ?? state.steps,
+        distance: data.distance ?? state.distance,
+        message: data.message || '',
+      })
+      if (next) {
+        ElMessage.info('Oracle 开始沿最短路径走，按方向键即可接管')
+        if (policy.status === 'running') Object.assign(policy, { status: 'paused', paused: true, message: '已切到 Oracle 驾驶' })
+      }
+      refresh()
+    })
+    .catch((error) => {
+      console.error(error)
+      ElMessage.error(error?.message || 'Oracle 启动失败')
+    })
+}
+
+function togglePip(value) {
+  api
+    .simPip(value)
+    .then((data) => {
+      state.pip = Boolean(data.pip)
+      state.pip_available = Boolean(data.pip_available)
+    })
+    .catch((error) => {
+      console.error(error)
+      pipOn.value = state.pip          // 失败就把开关拨回去
+    })
+}
+
+function toggleRobot(value) {
+  api
+    .simRobot(value)
+    .then((data) => {
+      state.robot = Boolean(data.robot)
+      state.robot_available = Boolean(data.robot_available)
+    })
+    .catch((error) => {
+      console.error(error)
+      robotOn.value = state.robot     // 失败就把开关拨回去
+    })
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename || 'sim.mp4'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+function onExport() {
+  if (!exportEnabled.value) return
+  if (exportReady.value) {
+    downloading.value = true
+    api
+      .simExportFile()
+      .then((blob) => downloadBlob(blob, recording.export.filename))
+      .catch(console.error)
+      .finally(() => {
+        downloading.value = false
+      })
+    return
+  }
+  api
+    .simExport()
+    .then((data) => {
+      Object.assign(recording.export, { status: data.status || 'encoding', progress: data.progress || 0 })
+      lastExportStatus = recording.export.status
+      if (data.status === 'error') ElMessage.warning(data.message || '导出失败')
+      else ElMessage.info(`开始导出 mp4（${data.frames || 0} 帧），完成后会提示下载`)
       refresh()
     })
     .catch(console.error)
@@ -605,13 +965,26 @@ function resetState() {
     message: '',
     pending: 0,
     last_action_source: 'manual',
+    geodesic: 0,
+    ne: 0,
+    shortest: 0,
+    spl: 0,
+    success: false,
+    oracle: false,
   })
   Object.assign(policy, { status: 'off', paused: false, message: '', infer_count: 0 })
   streamStuck.value = false
+  streamError.value = ''
+  reconnectCount = 0
   lastSeq = -1
 }
 
 let lastActAt = 0
+// 同一时刻只允许一条操控请求在飞：按住方向键时按 160ms 连发，后端一慢就会堆出
+// 十几条请求，把浏览器对同一域名的 6 条连接占满（连 /state 和重连画面都发不出去，
+// 整页看起来"卡死"）。这里只保留最后一次操作，当前请求结束后再发。
+let actInFlight = false
+let actNext = null
 
 function act(action, force = false) {
   if (!canControl.value || state.status !== 'ready') return
@@ -619,6 +992,15 @@ function act(action, force = false) {
   const now = performance.now()
   if (!force && now - lastActAt < 90) return
   lastActAt = now
+  if (actInFlight) {
+    actNext = action
+    return
+  }
+  sendAct(action)
+}
+
+function sendAct(action) {
+  actInFlight = true
   api
     .simAct(action)
     .then((data) => {
@@ -632,9 +1014,16 @@ function act(action, force = false) {
         policy.paused = true
         policy.message = action === 'reset' ? '已复位，模型暂停' : '已接管，模型暂停'
       }
+      state.oracle = false          // 后端收到手动动作会退出 oracle
       refresh()
     })
     .catch(console.error)
+    .finally(() => {
+      actInFlight = false
+      const next = actNext
+      actNext = null
+      if (next) sendAct(next)
+    })
 }
 
 const KEY_ACTION = {
@@ -685,19 +1074,33 @@ let lastSeq = -1
 let lastSeqAt = Date.now()
 let pollTimer = null
 let stuckTimer = null
+// 断流重连：最多 3 次、每次退避一倍，超了就停下等用户点「重新连接画面」。
+// 无限重连会让浏览器 6 条长连接被未结束的流占满，整页跟着卡死。
+const STUCK_MS = 3000
+const MAX_RECONNECT = 3
+let reconnectCount = 0
 
 onMounted(() => {
   loadDatasets()
   loadModels()
+  loadGpus()
   refresh()
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
   pollTimer = setInterval(refresh, 800)
   stuckTimer = setInterval(() => {
     if (state.status !== 'ready' || !state.session_id) return
-    if (Date.now() - lastSeqAt <= 3000) return
+    if (streamError.value) return          // 已经在错误态，等用户手动重连
+    if (Date.now() - lastSeqAt <= STUCK_MS) return
+    if (reconnectCount >= MAX_RECONNECT) {
+      streamStuck.value = false
+      streamError.value = '画面已停止更新：后端可能卡住或连接已断开。先点下面按钮重连；一直不行就重启后端进程'
+      return
+    }
+    reconnectCount += 1
     streamStuck.value = true
-    lastSeqAt = Date.now()
+    // 指数退避：第 n 次重连后要求连续 (STUCK_MS * n) 无帧才再试
+    lastSeqAt = Date.now() + STUCK_MS * reconnectCount
     streamKey.value += 1
   }, 3000)
 })
@@ -729,6 +1132,14 @@ onBeforeUnmount(() => {
 
 .episode-select {
   width: 240px;
+}
+
+.gpu-select {
+  width: 168px;
+}
+
+.policy-gpu-select {
+  width: 118px;
 }
 
 .preview-strip {
@@ -796,6 +1207,18 @@ onBeforeUnmount(() => {
   color: var(--nav-text-subtle);
 }
 
+.panel-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* 录制时长用等宽字体，数字跳动时不会把开关挤来挤去 */
+.record-meta {
+  white-space: nowrap;
+}
+
 .viewer-panel {
   padding: 14px 16px 16px;
 }
@@ -817,6 +1240,12 @@ onBeforeUnmount(() => {
   display: block;
   width: 100%;
   height: auto;
+}
+
+.stage-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .stage-layer {
@@ -961,6 +1390,13 @@ onBeforeUnmount(() => {
 
 .ctrl-stop {
   color: var(--nav-danger);
+}
+
+/* Oracle 驾驶中：按钮整体点亮，和"模型驾驶中"用同一套强调色 */
+.ctrl-btn.is-oracle {
+  border-color: var(--nav-accent);
+  color: var(--nav-accent-strong);
+  background: var(--nav-accent-soft);
 }
 
 .ctrl-hint {

@@ -38,6 +38,10 @@ class SimSpec:
     goal: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
     radius: float = C.SUCCESS_DIST
     instruction: str = ""
+    # R2R 原始 json 里的官方测地长度（SPL 的分母）与人类示范轨迹（俯视图参考线）。
+    # 两者都在 `episode.meta_json` 里，导入时就已落库，不需要重新读 dataset 的 json.gz。
+    geodesic_distance: float | None = None
+    reference_path: list[list[float]] = field(default_factory=list)
 
     @property
     def scene_label(self) -> str:
@@ -56,6 +60,10 @@ class SimSpec:
             "radius": round(self.radius, 2),
             "start": [round(float(v), 2) for v in self.start_position],
             "goal": [round(float(v), 2) for v in self.goal],
+            # 官方测地长度与参考点数：前端只用这两个标量，整条路径由后端画在俯视图上
+            "geodesic": (round(float(self.geodesic_distance), 2)
+                         if self.geodesic_distance else None),
+            "reference_points": len(self.reference_path),
         }
 
 
@@ -109,6 +117,48 @@ def parse_pose(raw: str, *, with_yaw: bool) -> tuple[list[float], float] | None:
     if not all(math.isfinite(v) for v in pos) or not math.isfinite(yaw):
         return None
     return pos, yaw
+
+
+def _as_xyz(item: Any) -> list[float] | None:
+    """路径点：`[x,y,z]` / `(x,y,z)` / `{"x":..,"y":..,"z":..}` 都收。"""
+    if isinstance(item, dict):
+        try:
+            xyz = [float(item["x"]), float(item["y"]), float(item["z"])]
+        except (KeyError, TypeError, ValueError):
+            return None
+    else:
+        seq = _as_list(item)
+        if len(seq) < 3:
+            return None
+        try:
+            xyz = [float(seq[0]), float(seq[1]), float(seq[2])]
+        except (TypeError, ValueError):
+            return None
+    if not all(math.isfinite(v) for v in xyz):
+        return None
+    return xyz
+
+
+def parse_reference_path(raw: Any) -> list[list[float]]:
+    """解析 R2R 的 `reference_path`（人类示范轨迹，世界坐标点列）。
+
+    备份库里三种形状都出现过：裸数组、`{"path": [...]}`、`{"points": [...]}`；
+    点本身可能是三元组也可能是 `{x,y,z}`。解析不出来就当没有，绝不因为参考线让开局失败。
+    """
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError):
+        return []
+    if isinstance(data, dict):
+        data = data.get("path") or data.get("points") or data.get("positions") or []
+    if not isinstance(data, (list, tuple)):
+        return []
+    points: list[list[float]] = []
+    for item in data:
+        xyz = _as_xyz(item)
+        if xyz is not None:
+            points.append([round(v, 3) for v in xyz])
+    return points
 
 
 def yaw_to_quaternion(yaw: float) -> list[float]:
@@ -218,6 +268,15 @@ def spec_from_episode(db: Session, episode_id: int) -> SimSpec:
     if not math.isfinite(radius) or radius <= 0:
         radius = C.SUCCESS_DIST
 
+    geodesic: float | None = None
+    raw_geo = episode_meta.get("geodesic_distance")
+    try:
+        geodesic = float(raw_geo)
+    except (TypeError, ValueError):
+        geodesic = None
+    if geodesic is not None and (not math.isfinite(geodesic) or geodesic <= 0):
+        geodesic = None
+
     return SimSpec(
         episode_id=int(episode.id),
         dataset_id=int(episode.dataset_id),
@@ -230,4 +289,6 @@ def spec_from_episode(db: Session, episode_id: int) -> SimSpec:
         goal=goal_position,
         radius=radius,
         instruction=str(episode.instruction or "").strip(),
+        geodesic_distance=geodesic,
+        reference_path=parse_reference_path(episode_meta.get("reference_path")),
     )

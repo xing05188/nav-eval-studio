@@ -33,6 +33,8 @@ http.interceptors.response.use(
     const status = error.response?.status
     const body = error.response?.data
     const message = body?.message || error.message || '网络异常'
+    // 轮询/操控这类高频请求用 silent: true：卡住时不要把页面刷成一墙红条
+    const silent = Boolean(error.config?.silent)
 
     if (status === 401) {
       localStorage.removeItem(TOKEN_KEY)
@@ -40,7 +42,7 @@ http.interceptors.response.use(
       if (!window.location.pathname.startsWith('/login')) {
         window.location.href = '/login'
       }
-    } else {
+    } else if (!silent) {
       ElMessage.error(message)
     }
     return Promise.reject(new Error(message))
@@ -124,13 +126,24 @@ export const api = {
 
   // 交互式仿真：画面走 <img src="/api/sim/stream?token=">，这里只封装 JSON 接口
   simStart: (payload) => http.post('/sim/sessions', payload, { timeout: 0 }),
-  simState: () => http.get('/sim/state'),
-  simAct: (action) => http.post('/sim/actions', { action }),
+  // 状态轮询与操控都要短超时：后端一旦卡住，长超时的请求会把浏览器的 6 条连接全占死，
+  // 连"重新连接画面"都发不出去（页面表现为整页卡死）。silent 是为了不刷屏。
+  simState: () => http.get('/sim/state', { timeout: 4000, silent: true }),
+  simAct: (action) => http.post('/sim/actions', { action }, { timeout: 6000, silent: true }),
   simStop: (sessionId) => http.delete(`/sim/sessions/${sessionId || 'current'}`),
   // 模型驾驶：启用后权重在后台线程加载（约 12 s），这里不等加载完成
   simPolicyStart: (payload = {}) => http.post('/sim/policy', payload),
   simPolicyStop: () => http.delete('/sim/policy'),
   simPolicyPause: (paused) => http.post('/sim/policy/pause', { paused }),
+  // Oracle 驾驶：沿 navmesh 最短路径自动走，用来和模型/人类轨迹对照
+  simOracle: (enabled) => http.post('/sim/oracle', { enabled }),
+  // 第三视角画中画（传感器在会话启动时按 sim.pip 建好，这里只切显隐）
+  simPip: (enabled) => http.post('/sim/pip', { enabled }),
+  // 机器狗模型显隐（模型在会话启动时按 sim.robot_mesh 加载）
+  simRobot: (enabled) => http.post('/sim/robot', { enabled }),
+  // 会话录制导出：启动编码后靠 /sim/state 的 recording.export 轮询进度，完成后拉 blob
+  simExport: () => http.post('/sim/recordings/export'),
+  simExportFile: () => http.get('/sim/recordings/export/file', { responseType: 'blob' }),
 
   reports: (params) => http.get('/reports', { params }),
   createReport: (payload) => http.post('/reports', payload),

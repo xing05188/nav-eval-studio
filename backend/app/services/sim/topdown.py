@@ -12,6 +12,11 @@ import numpy as np
 
 from . import constants as C
 
+# BGR（cv2 顺序）：三种线的配色，图例与绘制共用一套，别各写各的
+COLOR_TRAIL = (60, 200, 255)      # 实际轨迹：青
+COLOR_HUMAN = (235, 120, 240)     # 人类示范轨迹：紫红
+COLOR_ORACLE = (120, 245, 255)    # oracle 最短路径：淡黄
+
 
 class TopDownMap:
     def __init__(self, sim, w: int = C.MAP_W, h: int = C.MAP_H, margin: int = C.MAP_MARGIN):
@@ -68,7 +73,9 @@ def draw_dog_marker(img, px: int, py: int, yaw: float, gait: float, scale: float
     """在俯视图上画一只朝向 yaw 的四足狗（占位造型，带步态摆动）。"""
     import cv2
 
-    c, s = math.cos(yaw), math.sin(yaw)
+    # 实测：yaw=150° 前进时 Δx=-0.125、Δz=+0.217，即前方向量 = (-sinθ, -cosθ)，
+    # 所以这里取 s = -sinθ，否则整只狗会在俯视图上左右镜像（左转画成右转）
+    c, s = math.cos(yaw), -math.sin(yaw)
 
     def rot(dx: float, dz: float) -> tuple[int, int]:
         # 世界系（x 向右, z 向下）按 yaw 旋转
@@ -112,11 +119,58 @@ def draw_start(img, mapper: TopDownMap, start, yaw: float = 0.0) -> None:
     diamond = np.array([[sx, sy - d], [sx + d, sy], [sx, sy + d], [sx - d, sy]], np.int32)
     cv2.fillConvexPoly(img, diamond, (40, 90, 180))
     cv2.polylines(img, [diamond], True, (255, 190, 80), 2, cv2.LINE_AA)
-    ex = int(sx + 22 * math.sin(yaw))
+    # 同上：前方 = (-sinθ, -cosθ)
+    ex = int(sx - 22 * math.sin(yaw))
     ey = int(sy - 22 * math.cos(yaw))
     cv2.arrowedLine(img, (sx, sy), (ex, ey), (255, 190, 80), 2, cv2.LINE_AA, tipLength=0.35)
     cv2.putText(img, "START", (sx + 9, sy + 5),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 205, 120), 1, cv2.LINE_AA)
+
+
+def draw_path(img, mapper: TopDownMap, points, color, *, width: int = 2,
+              dash: int = 6, label: str = "", label_at=None) -> None:
+    """画一条参考路径（人类示范 / oracle 最短路径）。
+
+    `dash>0` 时手工打断成虚线：俯视图上已经有青色的实线轨迹，
+    参考线用虚线才分得清"走过的"和"该走的"。
+    """
+    import cv2
+
+    if not points or len(points) < 2:
+        return
+    pts = np.array([mapper.to_px(float(p[0]), float(p[2])) for p in points], np.int32)
+    if dash > 0:
+        step = max(2, int(dash))
+        for i in range(0, len(pts) - 1, step * 2):
+            seg = pts[i:i + step + 1]
+            if len(seg) >= 2:
+                cv2.polylines(img, [seg], False, color, width, cv2.LINE_AA)
+    else:
+        cv2.polylines(img, [pts], False, color, width, cv2.LINE_AA)
+    if label:
+        x, y = mapper.to_px(float(points[0][0]), float(points[0][2]))
+        tx, ty = (x + 10, y - 6) if label_at is None else label_at
+        cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.38, color, 1, cv2.LINE_AA)
+
+
+def draw_legend(img, entries) -> None:
+    """左上角图例：`[(颜色, 文字)]`。只写英文，避免缺中文字体时变方块。"""
+    import cv2
+
+    entries = [e for e in entries if e]
+    if not entries:
+        return
+    pad, line_h, x0, y0 = 6, 13, 24, 22
+    width = max(cv2.getTextSize(t, cv2.FONT_HERSHEY_SIMPLEX, 0.38, 1)[0][0] for _, t in entries)
+    overlay = img.copy()
+    cv2.rectangle(overlay, (x0 - 4, y0 - 12), (x0 + width + 34, y0 + line_h * len(entries) - 4),
+                  (14, 16, 20), -1)
+    cv2.addWeighted(overlay, 0.55, img, 0.45, 0, img)
+    for i, (color, text) in enumerate(entries):
+        y = y0 + line_h * i
+        cv2.line(img, (x0, y), (x0 + 14, y), color, 2, cv2.LINE_AA)
+        cv2.putText(img, text, (x0 + 20, y + 4), cv2.FONT_HERSHEY_SIMPLEX, 0.38, color,
+                    1, cv2.LINE_AA)
 
 
 def draw_trail(img, mapper: TopDownMap, trail) -> None:
@@ -126,7 +180,7 @@ def draw_trail(img, mapper: TopDownMap, trail) -> None:
     if trail is None or len(trail) < 2:
         return
     pts = np.array([mapper.to_px(float(x), float(z)) for x, z in trail], np.int32)
-    cv2.polylines(img, [pts], False, (60, 200, 255), 2, cv2.LINE_AA)
+    cv2.polylines(img, [pts], False, COLOR_TRAIL, 2, cv2.LINE_AA)
 
 
 def draw_scale_bar(img, mapper: TopDownMap) -> None:
@@ -151,4 +205,9 @@ __all__ = [
     "draw_start",
     "draw_trail",
     "draw_scale_bar",
+    "draw_path",
+    "draw_legend",
+    "COLOR_TRAIL",
+    "COLOR_HUMAN",
+    "COLOR_ORACLE",
 ]

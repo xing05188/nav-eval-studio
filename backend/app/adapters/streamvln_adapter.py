@@ -24,6 +24,31 @@ from typing import Any, Iterator
 
 from .base import BaseAdapter, EpisodeRecord
 
+# 回放工作台一次最多展示的帧数（与 replay_service.MAX_FRAMES 对齐）
+MAX_REPLAY_FRAMES = 600
+
+
+def _as_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _supports_frame_dump(script: Path) -> bool:
+    """上游脚本是否支持 --dump_frames（老版本代码里没有这个开关）。"""
+    try:
+        return "--dump_frames" in script.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+
 
 class StreamVLNAdapter(BaseAdapter):
     name = "streamvln"
@@ -32,6 +57,8 @@ class StreamVLNAdapter(BaseAdapter):
         super().__init__(ctx)
         self.proc: subprocess.Popen | None = None
         self.result_path: Path | None = None
+        # 逐帧回放元数据目录（评测脚本 --dump_frames 的输出），脚本不支持时为 None
+        self.replay_dir: Path | None = None
         self._buffer = ""
         self._offset = 0
         self._seen: set[str] = set()
@@ -63,6 +90,11 @@ class StreamVLNAdapter(BaseAdapter):
         raw_dir = self.ctx.run_dir / "raw"
         raw_dir.mkdir(parents=True, exist_ok=True)
         self.result_path = raw_dir / "result.json"
+
+        # 逐帧回放：上游脚本带 --dump_frames 才开启，老版本代码自动降级为「只有汇总指标」
+        self.replay_dir = raw_dir / "frames" if _supports_frame_dump(script) else None
+        if self.replay_dir is None:
+            self.ctx.log("评测脚本不支持 --dump_frames，本次不产出逐帧回放数据")
 
         command = self._build_command(str(launcher_path), script, weights, raw_dir)
         self.ctx.log("启动命令：" + " ".join(command))
@@ -110,6 +142,8 @@ class StreamVLNAdapter(BaseAdapter):
             "--seed",
             str(seed),
         ]
+        if self.replay_dir is not None:
+            command.extend(["--dump_frames", str(self.replay_dir)])
 
         extra = config.get("adapter", {}).get("extra_args") or []
         if extra:
@@ -209,15 +243,92 @@ class StreamVLNAdapter(BaseAdapter):
                 continue
         return payloads
 
+    def _load_frames(self, scene_id: str, episode_key: str) -> list[dict[str, Any]]:
+        """读取 `--dump_frames` 产出的逐帧元数据，形状与回放服务一致。"""
+        if self.replay_dir is None or not self.replay_dir.is_dir():
+            return []
+
+        target = self.replay_dir / f"{scene_id}_{episode_key}.jsonl"
+        if not target.is_file():
+            # 兼容只按 episode_id 命名的实现
+            matches = sorted(self.replay_dir.glob(f"*_{episode_key}.jsonl"))
+            if not matches:
+                return []
+            target = matches[0]
+
+        try:
+            text = target.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return []
+
+        frames: list[dict[str, Any]] = []
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                raw = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(raw, dict):
+                continue
+            pose = raw.get("pose")
+            if not isinstance(pose, (list, tuple)) or len(pose) < 3:
+                continue
+            try:
+                point = [round(float(value), 3) for value in pose[:3]]
+            except (TypeError, ValueError):
+                continue
+
+            before = _as_int(raw.get("tokens_before_prune"))
+            after = _as_int(raw.get("tokens_after_prune"), before)
+            frames.append(
+                {
+                    "idx": _as_int(raw.get("idx"), len(frames)),
+                    "t": round(_as_float(raw.get("t")), 3),
+                    "pose": point,
+                    "yaw": round(_as_float(raw.get("yaw")), 4),
+                    "action": str(raw.get("action") or "forward"),
+                    "latency_ms": round(_as_float(raw.get("latency_ms")), 2),
+                    "window_len": _as_int(raw.get("window_len")),
+                    "slow_update": bool(raw.get("slow_update")),
+                    "tokens_before_prune": before,
+                    "tokens_after_prune": after,
+                    "ctx_len": _as_int(raw.get("ctx_len"), after),
+                }
+            )
+
+        frames.sort(key=lambda item: item["idx"])
+        return frames[:MAX_REPLAY_FRAMES]
+
     def _to_record(self, payload: dict[str, Any]) -> EpisodeRecord | None:
         episode_key = payload.get("episode_id")
         if episode_key is None:
             return None
 
+        key = str(episode_key)
+        scene_id = str(payload.get("scene_id") or "")
         steps = int(payload.get("steps") or 0)
         elapsed = float(payload.get("elapsed_s") or 0.0)
         success = bool(payload.get("success"))
-        latency = round(elapsed / steps * 1000, 2) if steps else 0.0
+
+        frames = self._load_frames(scene_id, key)
+        step_latencies = [frame["latency_ms"] for frame in frames if frame["latency_ms"] > 0]
+        if step_latencies:
+            latencies = step_latencies
+        else:
+            average = round(elapsed / steps * 1000, 2) if steps else 0.0
+            latencies = [average] if average else []
+
+        # 逐帧有真实记账就用逐帧峰值；没有则退回 episode 级均值，绝不放大伪造
+        tokens_peak = max((frame["tokens_before_prune"] for frame in frames), default=0)
+        if not tokens_peak:
+            tokens_peak = int(_as_float(payload.get("mean_memory_tokens_before")))
+        ctx_len_peak = max((frame["ctx_len"] for frame in frames), default=0)
+        if not ctx_len_peak:
+            ctx_len_peak = int(_as_float(payload.get("mean_prompt_tokens"))) or int(
+                _as_float(payload.get("mean_memory_tokens_after"))
+            )
 
         reason = ""
         if not success:
@@ -225,8 +336,8 @@ class StreamVLNAdapter(BaseAdapter):
             reason = "timeout" if steps >= max_steps else "early_stop"
 
         return EpisodeRecord(
-            episode_key=str(episode_key),
-            scene_id=str(payload.get("scene_id") or ""),
+            episode_key=key,
+            scene_id=scene_id,
             success=success,
             spl=float(payload.get("spl") or 0.0),
             ne=float(payload.get("ne") or 0.0),
@@ -234,11 +345,12 @@ class StreamVLNAdapter(BaseAdapter):
             ndtw=float(payload.get("ndtw") or 0.0),
             tl=float(payload.get("tl") or 0.0),
             steps=steps,
-            latencies=[latency] if latency else [],
-            gpu_mem_peak_mb=int(payload.get("peak_gpu_mem_mb") or 0),
-            tokens_peak=int(float(payload.get("mean_prompt_tokens") or 0) * 100),
-            ctx_len_peak=0,
+            latencies=latencies,
+            gpu_mem_peak_mb=int(_as_float(payload.get("peak_gpu_mem_mb"))),
+            tokens_peak=tokens_peak,
+            ctx_len_peak=ctx_len_peak,
             failure_reason=reason,
+            frames=frames,
         )
 
     def stop(self) -> None:

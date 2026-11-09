@@ -57,11 +57,27 @@ sim:
   stream_hz: 20.0
   jpeg_quality: 82
   # 同时观看 MJPEG 的连接数上限
-  max_clients: 4
+  # 浏览器同域最多 6 条长连接，刷新/重连几次就会占满；上限放宽并允许踢最老的僵尸
+  max_clients: 8
   # 无状态请求超过该秒数自动停止会话（0 表示不超时）
   idle_timeout_s: 900
   # 剩余显存低于该值(MB)时在页面上给警告，但不阻止启动
   free_mem_warn_mb: 4096
+  # 第三视角：多挂一路 320×240 俯视相机，画面里做成第一视角右上角的画中画。
+  # 实测默认 15 fps 上限下开/不开都是 14.4 fps（解除上限后 55 vs 50 fps，差异在噪声内）；
+  # 运行中的「画中画」开关只切显隐、不省渲染，真要省这一路就在会话启动前关掉
+  pip: true
+  # 会话录制：按该采样率把整帧 JPEG 落盘（0 = 不录制），导出 mp4 时再异步编码
+  # 1120×480 的 JPEG 约 80 KB/帧，10 fps ≈ 48 MB/分钟；超出最大帧数后丢帧
+  record_fps: 10.0
+  record_max_frames: 6000
+  # 机器狗网格：只在第三视角（画中画）里看得到，第一视角看不到它，不影响模型输入。
+  # "go2" = 内置模型（backend/app/services/sim/assets/go2）；"" / "none" = 不显示；
+  # 也可填 .object_config.json 或 .glb 的绝对路径（.glb 需要同目录有同名 object_config）
+  robot_mesh: go2
+  robot_scale: 1.0
+  # 自定义模型如果车头不是朝 -Z，用这个角度（度）修正
+  robot_yaw_deg: 0.0
 
 # 模型驾驶（docs/08）。关掉 enabled 后 /api/sim/policy 直接 400，
 # 手动驾驶与其余页面完全不受影响。

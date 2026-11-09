@@ -1,0 +1,6 @@
+{
+  "render_asset": "go2.glb",
+  "mass": 15.0,
+  "scale": [1.0, 1.0, 1.0],
+  "join_collision_meshes": false
+}

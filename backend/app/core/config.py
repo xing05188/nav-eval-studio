@@ -54,6 +54,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_clients": 4,
         "idle_timeout_s": 900,
         "free_mem_warn_mb": 4096,
+        "pip": True,
+        "record_fps": 10.0,
+        "record_max_frames": 6000,
+        "robot_mesh": "go2",
+        "robot_scale": 1.0,
+        "robot_yaw_deg": 0.0,
     },
     "policy": {
         "enabled": True,
@@ -139,6 +145,17 @@ class SimConfig:
     max_clients: int = 4
     idle_timeout_s: int = 900
     free_mem_warn_mb: int = 4096
+    # 第三视角：多挂一路 320×240 相机，画面里做成第一视角右上角的画中画。
+    # 实测默认 15 fps 上限下开与不开都是 14.4 fps（裸渲染 50 vs 55 fps，差异在噪声内）
+    pip: bool = True
+    # 会话录制：落帧采样率（0 表示不录制），超过最大帧数后丢帧
+    record_fps: float = 10.0
+    record_max_frames: int = 6000
+    # 机器狗网格："" / "none" = 不显示；"go2" = 内置模型；也可给 .object_config.json
+    # 或 .glb 的绝对路径。只在画中画里能看到，第一视角视锥看不到它（见 docs/09 #9）
+    robot_mesh: str = "go2"
+    robot_scale: float = 1.0
+    robot_yaw_deg: float = 0.0
 
 
 @dataclass
@@ -274,6 +291,12 @@ def _load_sim_config(data: dict[str, Any]) -> SimConfig:
         max_clients=max(1, int(raw.get("max_clients", 4))),
         idle_timeout_s=max(0, int(raw.get("idle_timeout_s", 900))),
         free_mem_warn_mb=max(0, int(raw.get("free_mem_warn_mb", 4096))),
+        pip=bool(raw.get("pip", True)),
+        record_fps=max(0.0, min(30.0, float(raw.get("record_fps", 10.0)))),
+        record_max_frames=max(0, int(raw.get("record_max_frames", 6000))),
+        robot_mesh=str(raw.get("robot_mesh", "go2") or "").strip(),
+        robot_scale=max(0.1, min(5.0, float(raw.get("robot_scale", 1.0)))),
+        robot_yaw_deg=float(raw.get("robot_yaw_deg", 0.0)),
     )
 
 

@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -17,7 +17,7 @@ from ..db.session import get_db
 from ..models import AppUser
 from ..services.sim import sim_session
 from ..services.sim.constants import ACTION_CODES, ACTION_RESET
-from .deps import get_user_allow_query_token, require_roles
+from .deps import get_current_user, get_user_allow_query_token, require_roles
 
 router = APIRouter(prefix="/sim", tags=["sim"])
 
@@ -42,6 +42,18 @@ class PolicyStart(BaseModel):
 
 class PolicyPause(BaseModel):
     paused: bool = Field(..., description="true=暂停模型驾驶，false=恢复")
+
+
+class OracleToggle(BaseModel):
+    enabled: bool = Field(..., description="true=让 oracle 沿最短路径自动走，false=停下")
+
+
+class PipToggle(BaseModel):
+    enabled: bool = Field(..., description="true=在第一视角右上角叠第三视角画中画")
+
+
+class RobotToggle(BaseModel):
+    enabled: bool = Field(..., description="true=在第三视角里显示机器狗模型")
 
 
 @router.post("/sessions")
@@ -86,6 +98,42 @@ async def stream(request: Request, _: AppUser = Depends(get_user_allow_query_tok
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.post("/oracle")
+def set_oracle(payload: OracleToggle, _: AppUser = Depends(WRITE_ROLES)):
+    """Oracle 驾驶：沿 navmesh 最短路径自动走，用于和模型/人类轨迹对照。"""
+    return ok(sim_session.set_oracle(payload.enabled))
+
+
+@router.post("/pip")
+def set_pip(payload: PipToggle, _: AppUser = Depends(WRITE_ROLES)):
+    """第三视角画中画开关（第二路相机在会话启动时按 sim.pip 建好）。"""
+    return ok(sim_session.set_pip(payload.enabled))
+
+
+@router.post("/robot")
+def set_robot(payload: RobotToggle, _: AppUser = Depends(WRITE_ROLES)):
+    """机器狗模型显隐（模型在会话启动时按 sim.robot_mesh 加载）。"""
+    return ok(sim_session.set_robot(payload.enabled))
+
+
+@router.post("/recordings/export")
+def start_export(_: AppUser = Depends(WRITE_ROLES)):
+    """把已落盘的帧异步编码成 mp4；进度见 /sim/state 的 `recording.export`。"""
+    return ok(sim_session.export_video())
+
+
+@router.get("/recordings/export")
+def export_state(_: AppUser = Depends(get_current_user)):
+    return ok(sim_session.recording_state())
+
+
+@router.get("/recordings/export/file")
+def download_export(_: AppUser = Depends(get_user_allow_query_token)):
+    """`<a href>` / 前端 blob 都能用：走 `?token=` 这条鉴权通道。"""
+    target, filename = sim_session.open_export()
+    return FileResponse(target, media_type="video/mp4", filename=filename)
 
 
 @router.post("/policy")

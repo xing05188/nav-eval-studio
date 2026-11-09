@@ -71,7 +71,36 @@ MAX_TRAIL_POINTS = 4000   # 轨迹点上限，超出后按步长抽稀，避免�
 
 # ---- 会话 ----
 IDLE_TIMEOUT_S = 900
-MAX_CLIENTS = 4
+# 浏览器对同一域名最多 6 条 HTTP/1.1 连接，而 MJPEG 那条长连接不释放；
+# 刷新/断流重连几次就会把名额占满（第 5 条起 429 → 页面黑屏且无提示）。
+# 所以上限放宽到 8，并在超限时踢掉最老的僵尸，而不是把新连接拒之门外。
+MAX_CLIENTS = 8
 FREE_MEM_WARN_MB = 4096
-# 观看连接的心跳超时：浏览器直接关标签页时生成器不保证跑 finally，超时即回收
-CLIENT_STALE_S = 60.0
+# 观看连接的心跳超时：只在**成功推出一帧**时刷新，客户端不再读就会自然过期
+CLIENT_STALE_S = 15.0
+# 一条流连续这么久没有新帧就主动断开：避免"客户端已放弃但生成器还挂着"把名额占死
+STREAM_IDLE_S = 8.0
+
+# ---- 第三视角（画中画，docs/09 #9）----
+# 第二路相机挂在 agent 身后上方：`orientation` 是 agent 局部坐标下的欧拉角（弧度），
+# 实测 [-0.45, 0, 0] 为俯视 26°（正号 / 0 会抬头，看到的是天花板）。
+# 机位从最早的 [0,2.6,2.6]/34° 调近到 [0,1.8,2.0]/26°：机器狗从 15×28 px 变成 20×40 px。
+PIP_W, PIP_H, PIP_HFOV = 320, 240, 90
+PIP_UUID = "chase_rgb"
+PIP_POS = [0.0, 1.8, 2.0]        # 前进方向是 -Z，所以 +Z 在狗身后
+PIP_ROT = [-0.4538, 0.0, 0.0]
+PIP_MARGIN = 8
+PIP_LABEL = "3rd view"
+
+# ---- 机器狗网格 ----
+# 静态 GLB：由 go2_description 的 URDF 离线转换（Y-up、脚底在 y=0、车头朝 -Z），
+# 每帧跟着 agent 位姿摆一下，不参与物理、不挡路。
+ROBOT_ASSET_DIR = "assets/go2"       # 相对本包目录
+ROBOT_CONFIG_NAME = "go2.object_config.json"
+ROBOT_HIDDEN_Y = -1000.0             # 隐藏时挪到地平线以下：引擎没暴露 visible 开关
+ROBOT_MAX_YAW_OFFSET = 180.0         # 自定义模型朝向修正的角度上限
+
+# ---- 会话录制（mp4 导出，docs/09 #10）----
+RECORD_FPS = 10.0          # 落帧采样率（引擎 15–20 fps，这里按时间抽样）
+RECORD_MAX_FRAMES = 6000   # 10 分钟；超出后丢帧，避免单局把磁盘撑爆
+VIDEO_FPS = 10             # mp4 标称帧率，与采样率对齐，播放速度才是 1x

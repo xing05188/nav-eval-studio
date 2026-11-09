@@ -76,6 +76,9 @@ def main() -> None:
         port=port,
         reload=args.reload,
         log_level=settings.logging.level.lower(),
+        # 默认 5 s 太短：页面静一会儿后浏览器复用刚被服务端关掉的连接，
+        # POST /api/sim/actions 会报 ERR_INVALID_HTTP_RESPONSE（浏览器不会重试 POST）
+        timeout_keep_alive=30,
     )
 
 
