@@ -1,7 +1,7 @@
 % ============================================================
 %  tongjisource -- 软件著作权登记《源程序》版式
-%  规范：60 页，每页 50 行，共 3000 行；
-%        第 1--30 页为源程序前部，第 31--60 页为源程序后部；
+%  规范：每页 50 行，代码按完整源文件顺序连续排，最后一页自然收尾；
+%        总行数与总页数由 tools/gen_source.py 计算（不固定页数、不截断）；
 %        页眉标注软件全称与版本号，页脚标注当前源码文件与页码。
 % ============================================================
 \NeedsTeXFormat{LaTeX2e}
@@ -59,21 +59,22 @@
 % 页眉页脚
 % ------------------------------------------------------------
 \newcommand{\srchint}{}
-\newcommand{\sourcepagelabel}{%
-  \ifnum\value{page}<31 源程序·前30页\else 源程序·后30页\fi}
+% 总页数由 chapters/source_body.tex 中的 \setsourcetotalpages 给出
+\providecommand{\sourcetotalpages}{60}
+\newcommand{\setsourcetotalpages}[1]{\gdef\sourcetotalpages{#1}}
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\softwareheader}
-\fancyhead[R]{\small\sourcepagelabel}
+\fancyhead[R]{\small 源程序}
 \fancyfoot[L]{\footnotesize\color{black!55}\srchint}
-\fancyfoot[R]{\small 第~\thepage~页~/~共~60~页}
+\fancyfoot[R]{\small 第~\thepage~页~/~共~\sourcetotalpages~页}
 \renewcommand{\headrulewidth}{0.4pt}
 \renewcommand{\footrulewidth}{0pt}
 \fancypagestyle{plain}{%
   \fancyhf{}\fancyhead[L]{\small\softwareheader}%
-  \fancyhead[R]{\small\sourcepagelabel}%
+  \fancyhead[R]{\small 源程序}%
   \fancyfoot[L]{\footnotesize\color{black!55}\srchint}%
-  \fancyfoot[R]{\small 第~\thepage~页~/~共~60~页}%
+  \fancyfoot[R]{\small 第~\thepage~页~/~共~\sourcetotalpages~页}%
   \renewcommand{\headrulewidth}{0.4pt}}
 
 % ------------------------------------------------------------

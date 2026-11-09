@@ -2,11 +2,12 @@
 %  软件著作权登记《源程序》编译入口
 %  编译：make source  或  latexmk -xelatex source_code.tex
 %
-%  软著提交口径：源程序前 30 页 + 后 30 页，共 60 页，每页 50 行，
-%  合计 3000 行；页眉为「码极客具身导航多模态流式评测与诊断平台 V1.0」。
+%  源程序按完整源文件顺序连续排版：每页 50 行，最后一页不足 50 行时
+%  自然收尾；总行数 3000 多行、总页数由 tools/gen_source.py 计算，
+%  不固定页数、不截断任何文件。页眉为「码极客具身导航多模态流式评测与诊断平台 V1.0」。
 %
-%  chapters/source_excerpt.txt  按选取清单从项目真实源码拼接的 3000 行
-%  chapters/source_body.tex     60 个 \sourcepage 分页指令
+%  chapters/source_excerpt.txt  按选取清单从项目真实源码拼接的完整代码
+%  chapters/source_body.tex     \sourcepage 分页指令与总页数
 %  以上两个文件由 tools/gen_source.py 生成，代码冻结后重新运行即可同步。
 % ============================================================
 \documentclass[UTF8,fontset=fandol,10pt,a4paper]{ctexart}

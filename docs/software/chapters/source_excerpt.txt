@@ -930,103 +930,6 @@ class EventBus:
 
 
 BUS = EventBus()
-"""路径安全。
-
-软件允许用户登记任意本地数据集路径，但所有运行时产物必须落在工作目录内。
-对外暴露的相对路径统一通过 safe_join 解析，防止 .. 穿越。
-"""
-
-from __future__ import annotations
-
-from pathlib import Path
-
-from .response import PARAM_INVALID, AppError
-
-
-def ensure_within(base: Path, target: Path | str) -> Path:
-    """确认 target 位于 base 之内，返回绝对路径。"""
-    base_resolved = base.resolve()
-    candidate = Path(target)
-    if not candidate.is_absolute():
-        candidate = base_resolved / candidate
-    resolved = candidate.resolve()
-    if resolved != base_resolved and base_resolved not in resolved.parents:
-        raise AppError(PARAM_INVALID, f"路径越界：{target}")
-    return resolved
-
-
-def safe_join(base: Path, *parts: str) -> Path:
-    relative = Path(*[str(part) for part in parts if str(part)])
-    return ensure_within(base, base / relative)
-
-
-def task_dir(work_dir: Path, task_id: int) -> Path:
-    directory = work_dir / "runs" / f"task-{task_id:06d}"
-    directory.mkdir(parents=True, exist_ok=True)
-    return directory
-
-
-def task_artifact_path(work_dir: Path, task_id: int, *parts: str) -> Path:
-    directory = task_dir(work_dir, task_id)
-    target = safe_join(directory, *parts)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    return target
-
-
-def display_path(base: Path, target: Path | str) -> str:
-    """转为前端可展示的相对路径，越界时返回原字符串。"""
-    try:
-        return str(Path(target).resolve().relative_to(base.resolve()))
-    except ValueError:
-        return str(target)
-"""日志初始化。
-
-统一输出到控制台与 storage/logs/app.log，按大小轮转；任务级日志另行落盘。
-"""
-
-from __future__ import annotations
-
-import logging
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
-
-from .config import Settings
-
-_FORMAT = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
-
-
-def setup_logging(settings: Settings) -> None:
-    logs_dir: Path = settings.logs_dir
-    logs_dir.mkdir(parents=True, exist_ok=True)
-
-    root = logging.getLogger()
-    root.setLevel(getattr(logging, settings.logging.level.upper(), logging.INFO))
-
-    if any(getattr(handler, "_naveval", False) for handler in root.handlers):
-        return
-
-    formatter = logging.Formatter(_FORMAT)
-
-    console = logging.StreamHandler()
-    console.setFormatter(formatter)
-    console._naveval = True  # type: ignore[attr-defined]
-    root.addHandler(console)
-
-    file_handler = RotatingFileHandler(
-        logs_dir / "app.log",
-        maxBytes=10 * 1024 * 1024,
-        backupCount=5,
-        encoding="utf-8",
-    )
-    file_handler.setFormatter(formatter)
-    file_handler._naveval = True  # type: ignore[attr-defined]
-    root.addHandler(file_handler)
-
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-
-
-def get_logger(name: str) -> logging.Logger:
-    return logging.getLogger(name)
 """数据库引擎与会话。
 
 建库使用 schema.sql 一次性执行，运行时由 SQLAlchemy 管理连接。
@@ -1472,32 +1375,487 @@ class BackupAsset(Base):
     meta_json = Column(Text, nullable=False, default="{}")
     imported_at = Column(String)
     updated_at = Column(String)
-"""评测任务相关模型。"""
+"""适配器协议与运行上下文。
+
+适配器只负责"跑一条 episode 并产出标准记录"，不写数据库；
+调度器负责持久化、事件推送与状态迁移，便于替换推理后端。
+"""
 
 from __future__ import annotations
 
-from typing import Any
-
-from pydantic import BaseModel, Field
-
-
-class TaskCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=80)
-    dataset_id: int
-    split_id: int
-    model_profile_id: int
-    template_id: int | None = None
-    overrides: dict[str, Any] = Field(default_factory=dict)
-    priority: int = Field(default=5, ge=1, le=9)
-    gpu_ids: str = Field(default="", max_length=64)
-    note: str = Field(default="", max_length=512)
+import threading
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Callable, Iterator
 
 
-class TaskBrief(BaseModel):
-    id: int
-    name: str
-    status: str
-    dataset_id: int
+@dataclass
+class EpisodeRecord:
+    episode_key: str
+    scene_id: str = ""
+    success: bool = False
+    spl: float = 0.0
+    ne: float = 0.0
+    os: float = 0.0
+    ndtw: float = 0.0
+    tl: float = 0.0
+    steps: int = 0
+    latencies: list[float] = field(default_factory=list)
+    gpu_mem_peak_mb: int = 0
+    tokens_peak: int = 0
+    ctx_len_peak: int = 0
+    failure_reason: str = ""
+    frames: list[dict[str, Any]] = field(default_factory=list)
+
+    @property
+    def latency_avg_ms(self) -> float:
+        if not self.latencies:
+            return 0.0
+        return round(sum(self.latencies) / len(self.latencies), 2)
+
+    @property
+    def latency_p95_ms(self) -> float:
+        if not self.latencies:
+            return 0.0
+        ordered = sorted(self.latencies)
+        index = min(len(ordered) - 1, int(len(ordered) * 0.95))
+        return round(ordered[index], 2)
+
+
+@dataclass
+class RunContext:
+    task_id: int
+    task_name: str
+    run_dir: Path
+    config: dict[str, Any]
+    episodes: list[dict[str, Any]]
+    model: dict[str, Any]
+    dataset: dict[str, Any]
+    log: Callable[[str], None]
+    progress: Callable[[int, int, str], None]
+    sample: Callable[[dict[str, Any]], None]
+    cancel_event: threading.Event = field(default_factory=threading.Event)
+    pause_event: threading.Event = field(default_factory=threading.Event)
+    stopped: bool = False
+
+    @property
+    def frames_dir(self) -> Path:
+        directory = self.run_dir / "frames"
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
+    def should_cancel(self) -> bool:
+        return self.cancel_event.is_set()
+
+    def wait_if_paused(self) -> None:
+        while self.pause_event.is_set() and not self.cancel_event.is_set():
+            threading.Event().wait(0.3)
+
+
+class BaseAdapter:
+    name = "base"
+    allowed_inputs: set[str] = {"rgb"}
+
+    def __init__(self, ctx: RunContext):
+        self.ctx = ctx
+
+    def prepare(self) -> None:
+        """校验运行条件，失败时抛出 RuntimeError 并附带可读原因。"""
+
+    def run(self) -> Iterator[EpisodeRecord]:
+        raise NotImplementedError
+
+    def stop(self) -> None:
+        """终止底层进程（取消时调用），默认无操作。"""
+
+    def finish(self) -> dict[str, Any]:
+        return {}
+
+
+def build_adapter(ctx: RunContext) -> BaseAdapter:
+    family = str(ctx.model.get("family", "")).lower()
+    if family == "streamvln":
+        return StreamVLNAdapter(ctx)
+    if family == "mock":
+        return MockAdapter(ctx)
+    entry = str(ctx.model.get("entry") or "")
+    if entry.endswith("MockAdapter"):
+        return MockAdapter(ctx)
+    raise RuntimeError(f"暂不支持的模型家族：{family or '未配置'}")
+
+
+# 延迟导入，避免循环引用
+from .mock_adapter import MockAdapter  # noqa: E402
+from .streamvln_adapter import StreamVLNAdapter  # noqa: E402
+"""StreamVLN 真实推理适配器。
+
+调用方式与上游 `scripts/run_eval_kaggle.sh` 一致：
+    torchrun --nproc_per_node=1 --master_port=<port> <code>/streamvln/streamvln_eval.py \
+        --model_path <weights> --eval_split <split> --output_path <raw> --seed <seed> [extra]
+
+运行期持续 tail `<raw>/result.json`（JSONL，一行一条 episode），
+解析为标准记录后交给调度器，因此进度是逐条推进的，而不是等进程结束。
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import signal
+import subprocess
+import threading
+import time
+from collections import deque
+from pathlib import Path
+from queue import Empty, Queue
+from typing import Any, Iterator
+
+from .base import BaseAdapter, EpisodeRecord
+
+# 回放工作台一次最多展示的帧数（与 replay_service.MAX_FRAMES 对齐）
+MAX_REPLAY_FRAMES = 600
+
+
+def _as_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _supports_frame_dump(script: Path) -> bool:
+    """上游脚本是否支持 --dump_frames（老版本代码里没有这个开关）。"""
+    try:
+        return "--dump_frames" in script.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+
+
+class StreamVLNAdapter(BaseAdapter):
+    name = "streamvln"
+
+    def __init__(self, ctx):
+        super().__init__(ctx)
+        self.proc: subprocess.Popen | None = None
+        self.result_path: Path | None = None
+        # 逐帧回放元数据目录（评测脚本 --dump_frames 的输出），脚本不支持时为 None
+        self.replay_dir: Path | None = None
+        self._buffer = ""
+        self._offset = 0
+        self._seen: set[str] = set()
+        self._log_queue: Queue[str] = Queue()
+        self._tail: deque[str] = deque(maxlen=40)
+        self._reader: threading.Thread | None = None
+
+    # ---------------------------------------------------------------- 准备
+
+    def prepare(self) -> None:
+        model = self.ctx.model
+        code_path = Path(str(model.get("code_path") or "")).expanduser()
+        if not code_path.exists():
+            raise RuntimeError(f"代码目录不存在：{code_path}")
+
+        script = code_path / "streamvln" / "streamvln_eval.py"
+        if not script.exists():
+            raise RuntimeError(f"未找到评测脚本：{script}")
+
+        weights = Path(str(model.get("weights_path") or "")).expanduser()
+        if not weights.exists():
+            raise RuntimeError(f"权重目录不存在：{weights}")
+
+        launcher = str(model.get("entry") or "torchrun").strip()
+        launcher_path = launcher if Path(launcher).is_absolute() else shutil.which(launcher)
+        if not launcher_path or not Path(launcher_path).exists():
+            raise RuntimeError(f"找不到启动器：{launcher}，请检查模型档案中的入口配置")
+
+        raw_dir = self.ctx.run_dir / "raw"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        self.result_path = raw_dir / "result.json"
+
+        # 逐帧回放：上游脚本带 --dump_frames 才开启，老版本代码自动降级为「只有汇总指标」
+        self.replay_dir = raw_dir / "frames" if _supports_frame_dump(script) else None
+        if self.replay_dir is None:
+            self.ctx.log("评测脚本不支持 --dump_frames，本次不产出逐帧回放数据")
+
+        command = self._build_command(str(launcher_path), script, weights, raw_dir)
+        self.ctx.log("启动命令：" + " ".join(command))
+
+        env = os.environ.copy()
+        config = self.ctx.config
+        gpu_ids = str(config.get("gpu_ids") or "").strip()
+        env["CUDA_VISIBLE_DEVICES"] = gpu_ids or "0"
+        env.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
+        env.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+        env.setdefault("MAGNUM_LOG", "quiet")
+        env.setdefault("HABITAT_SIM_LOG", "quiet")
+
+        self.proc = subprocess.Popen(  # noqa: S603 - 命令由本地配置拼装
+            command,
+            cwd=str(code_path),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            env=env,
+            start_new_session=True,
+        )
+        self._reader = threading.Thread(target=self._read_output, daemon=True)
+        self._reader.start()
+        self.ctx.log(f"子进程已启动 pid={self.proc.pid}")
+
+    def _build_command(
+        self, launcher: str, script: Path, weights: Path, raw_dir: Path
+    ) -> list[str]:
+        config = self.ctx.config
+        eval_split = str(config.get("eval_split") or "val_unseen")
+        seed = int(config.get("seed", 42))
+        command = [
+            launcher,
+            "--nproc_per_node=1",
+            f"--master_port={config.get('master_port', 29611)}",
+            str(script),
+            "--model_path",
+            str(weights),
+            "--eval_split",
+            eval_split,
+            "--output_path",
+            str(raw_dir),
+            "--seed",
+            str(seed),
+        ]
+        if self.replay_dir is not None:
+            command.extend(["--dump_frames", str(self.replay_dir)])
+
+        extra = config.get("adapter", {}).get("extra_args") or []
+        if extra:
+            command.extend([str(item) for item in extra])
+            return command
+
+        command.extend(["--num_history", str(int(config.get("history_len", 8)))])
+        command.extend(["--num_future_steps", str(int(config.get("num_future_steps", 4)))])
+        if config.get("memory_policy") == "spatial_prune":
+            prune_ratio = float(config.get("prune_ratio", 0.0))
+            command.extend(["--prune_mode", "voxel"])
+            if 0 < prune_ratio < 1:
+                command.extend(["--prune_keep_ratio", f"{1 - prune_ratio:.3f}"])
+        return command
+
+    def _read_output(self) -> None:
+        assert self.proc is not None and self.proc.stdout is not None
+        for line in self.proc.stdout:
+            text = line.rstrip()
+            if text:
+                self._tail.append(text)
+                self._log_queue.put(text)
+
+    # ---------------------------------------------------------------- 执行
+
+    def run(self) -> Iterator[EpisodeRecord]:
+        if self.proc is None:
+            self.prepare()
+        assert self.proc is not None
+
+        idle_rounds = 0
+        while True:
+            if self.ctx.should_cancel():
+                self.stop()
+                return
+
+            self._flush_logs()
+
+            produced = False
+            for payload in self._read_new_records():
+                record = self._to_record(payload)
+                if record is None or record.episode_key in self._seen:
+                    continue
+                self._seen.add(record.episode_key)
+                produced = True
+                yield record
+
+            if self.proc.poll() is not None:
+                idle_rounds += 1
+                if not produced and idle_rounds >= 2:
+                    break
+            else:
+                idle_rounds = 0
+
+            time.sleep(0.6)
+
+        self._flush_logs()
+
+        if self.proc.returncode not in (0, None):
+            tail = "\n".join(list(self._tail)[-12:])
+            if "out of memory" in tail.lower():
+                raise RuntimeError("推理进程显存不足（OOM）\n" + tail)
+            raise RuntimeError(f"推理进程退出码 {self.proc.returncode}\n{tail}")
+
+    def _flush_logs(self) -> None:
+        while True:
+            try:
+                line = self._log_queue.get_nowait()
+            except Empty:
+                return
+            self.ctx.log(line)
+
+    def _read_new_records(self) -> list[dict[str, Any]]:
+        """增量读取结果文件，只解析新增的完整行。"""
+        if self.result_path is None or not self.result_path.exists():
+            return []
+
+        with self.result_path.open("rb") as handle:
+            handle.seek(self._offset)
+            data = handle.read()
+        if not data:
+            return []
+        self._offset += len(data)
+
+        text = self._buffer + data.decode("utf-8", errors="replace")
+        lines = text.split("\n")
+        self._buffer = lines.pop()  # 最后一段可能不完整，留到下次拼接
+
+        payloads: list[dict[str, Any]] = []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                payloads.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+        return payloads
+
+    def _load_frames(self, scene_id: str, episode_key: str) -> list[dict[str, Any]]:
+        """读取 `--dump_frames` 产出的逐帧元数据，形状与回放服务一致。"""
+        if self.replay_dir is None or not self.replay_dir.is_dir():
+            return []
+
+        target = self.replay_dir / f"{scene_id}_{episode_key}.jsonl"
+        if not target.is_file():
+            # 兼容只按 episode_id 命名的实现
+            matches = sorted(self.replay_dir.glob(f"*_{episode_key}.jsonl"))
+            if not matches:
+                return []
+            target = matches[0]
+
+        try:
+            text = target.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return []
+
+        frames: list[dict[str, Any]] = []
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                raw = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(raw, dict):
+                continue
+            pose = raw.get("pose")
+            if not isinstance(pose, (list, tuple)) or len(pose) < 3:
+                continue
+            try:
+                point = [round(float(value), 3) for value in pose[:3]]
+            except (TypeError, ValueError):
+                continue
+
+            before = _as_int(raw.get("tokens_before_prune"))
+            after = _as_int(raw.get("tokens_after_prune"), before)
+            frames.append(
+                {
+                    "idx": _as_int(raw.get("idx"), len(frames)),
+                    "t": round(_as_float(raw.get("t")), 3),
+                    "pose": point,
+                    "yaw": round(_as_float(raw.get("yaw")), 4),
+                    "action": str(raw.get("action") or "forward"),
+                    "latency_ms": round(_as_float(raw.get("latency_ms")), 2),
+                    "window_len": _as_int(raw.get("window_len")),
+                    "slow_update": bool(raw.get("slow_update")),
+                    "tokens_before_prune": before,
+                    "tokens_after_prune": after,
+                    "ctx_len": _as_int(raw.get("ctx_len"), after),
+                }
+            )
+
+        frames.sort(key=lambda item: item["idx"])
+        return frames[:MAX_REPLAY_FRAMES]
+
+    def _to_record(self, payload: dict[str, Any]) -> EpisodeRecord | None:
+        episode_key = payload.get("episode_id")
+        if episode_key is None:
+            return None
+
+        key = str(episode_key)
+        scene_id = str(payload.get("scene_id") or "")
+        steps = int(payload.get("steps") or 0)
+        elapsed = float(payload.get("elapsed_s") or 0.0)
+        success = bool(payload.get("success"))
+
+        frames = self._load_frames(scene_id, key)
+        step_latencies = [frame["latency_ms"] for frame in frames if frame["latency_ms"] > 0]
+        if step_latencies:
+            latencies = step_latencies
+        else:
+            average = round(elapsed / steps * 1000, 2) if steps else 0.0
+            latencies = [average] if average else []
+
+        # 逐帧有真实记账就用逐帧峰值；没有则退回 episode 级均值，绝不放大伪造
+        tokens_peak = max((frame["tokens_before_prune"] for frame in frames), default=0)
+        if not tokens_peak:
+            tokens_peak = int(_as_float(payload.get("mean_memory_tokens_before")))
+        ctx_len_peak = max((frame["ctx_len"] for frame in frames), default=0)
+        if not ctx_len_peak:
+            ctx_len_peak = int(_as_float(payload.get("mean_prompt_tokens"))) or int(
+                _as_float(payload.get("mean_memory_tokens_after"))
+            )
+
+        reason = ""
+        if not success:
+            max_steps = int(self.ctx.config.get("max_steps", 500))
+            reason = "timeout" if steps >= max_steps else "early_stop"
+
+        return EpisodeRecord(
+            episode_key=key,
+            scene_id=scene_id,
+            success=success,
+            spl=float(payload.get("spl") or 0.0),
+            ne=float(payload.get("ne") or 0.0),
+            os=float(payload.get("os") or 0.0),
+            ndtw=float(payload.get("ndtw") or 0.0),
+            tl=float(payload.get("tl") or 0.0),
+            steps=steps,
+            latencies=latencies,
+            gpu_mem_peak_mb=int(_as_float(payload.get("peak_gpu_mem_mb"))),
+            tokens_peak=tokens_peak,
+            ctx_len_peak=ctx_len_peak,
+            failure_reason=reason,
+            frames=frames,
+        )
+
+    def stop(self) -> None:
+        if self.proc is None or self.proc.poll() is not None:
+            return
+        try:
+            os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):
+            return
+        try:
+            self.proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
 """评测任务调度器。
 
 单进程内的异步调度：队列 + 并发额度 + GPU 互斥，任务体在独立线程中执行，
@@ -1758,286 +2116,173 @@ class Scheduler:
             if ctx.should_cancel() and adapter is not None:
                 try:
                     adapter.stop()
-"""StreamVLN 真实推理适配器。
+                except Exception:  # noqa: BLE001 - 清理阶段忽略
+                    logger.exception("终止适配器失败 task=%s", task_id)
+            self._runtime.pop(task_id, None)
 
-调用方式与上游 `scripts/run_eval_kaggle.sh` 一致：
-    torchrun --nproc_per_node=1 --master_port=<port> <code>/streamvln/streamvln_eval.py \
-        --model_path <weights> --eval_split <split> --output_path <raw> --seed <seed> [extra]
+        if ctx.should_cancel():
+            append_log("任务已取消")
+            self._finalize(task_id, canceled=True)
+        elif error:
+            self._finalize(task_id, error=error)
+        else:
+            append_log(f"执行完成，共处理 {processed} 条，用时 {time.time() - started:.1f}s")
+            self._finalize(task_id)
 
-运行期持续 tail `<raw>/result.json`（JSONL，一行一条 episode），
-解析为标准记录后交给调度器，因此进度是逐条推进的，而不是等进程结束。
-"""
+    def _persist(
+        self,
+        task_id: int,
+        row_id: int,
+        record: EpisodeRecord,
+        run_dir: Path,
+        ctx: RunContext,
+    ) -> None:
+        frames_path = ""
+        if record.frames:
+            directory = run_dir / "frames"
+            directory.mkdir(parents=True, exist_ok=True)
+            target = directory / f"{record.episode_key}.jsonl"
+            with target.open("w", encoding="utf-8") as handle:
+                for frame in record.frames:
+                    handle.write(json.dumps(frame, ensure_ascii=False) + "\n")
+            frames_path = str(target)
 
-from __future__ import annotations
+        with session_scope() as db:
+            db.execute(
+                update(TaskEpisode)
+                .where(TaskEpisode.id == row_id)
+                .values(
+                    status="success" if record.success else "failed",
+                    success=1 if record.success else 0,
+                    spl=record.spl,
+                    ne=record.ne,
+                    os=record.os,
+                    ndtw=record.ndtw,
+                    tl=record.tl,
+                    steps=record.steps,
+                    latency_avg_ms=record.latency_avg_ms,
+                    latency_p95_ms=record.latency_p95_ms,
+                    gpu_mem_peak_mb=record.gpu_mem_peak_mb,
+                    tokens_peak=record.tokens_peak,
+                    ctx_len_peak=record.ctx_len_peak,
+                    failure_reason=record.failure_reason,
+                    traj_path=frames_path,
+                    updated_at=task_service.now_str(),
+                )
+            )
+            task = db.get(EvalTask, task_id)
+            progress = 0
+            if task is not None:
+                task.progress_done = (task.progress_done or 0) + 1
+                progress = task.progress_done
 
-import json
-import os
-import shutil
-import signal
-import subprocess
-import threading
-import time
-from collections import deque
-from pathlib import Path
-from queue import Empty, Queue
-from typing import Any, Iterator
+            db.add(
+                ResourceSample(
+                    task_id=task_id,
+                    ts=task_service.now_str(),
+                    step=progress,
+                    gpu_mem_mb=record.gpu_mem_peak_mb,
+                    latency_ms=record.latency_avg_ms,
+                    tokens=record.tokens_peak,
+                    ctx_len=record.ctx_len_peak,
+                )
+            )
 
-from .base import BaseAdapter, EpisodeRecord
+    def _finalize(self, task_id: int, error: str | None = None, canceled: bool = False) -> None:
+        with session_scope() as db:
+            task = db.get(EvalTask, task_id)
+            if task is None:
+                return
+            metrics = task_service.aggregate_metrics(db, task)
+            if canceled:
+                task.status = "canceled"
+            elif error:
+                task.status = "failed"
+                task.error_msg = error[:1000]
+            else:
+                task.status = "succeeded"
+            task.finished_at = task_service.now_str()
+            if task.started_at:
+                try:
+                    start = datetime.strptime(task.started_at, "%Y-%m-%d %H:%M:%S")
+                    end = datetime.strptime(task.finished_at, "%Y-%m-%d %H:%M:%S")
+                    task.duration_s = round((end - start).total_seconds(), 1)
+                except ValueError:
+                    task.duration_s = None
 
-# 回放工作台一次最多展示的帧数（与 replay_service.MAX_FRAMES 对齐）
-MAX_REPLAY_FRAMES = 600
+        self._emit(task_id, "state", {"status": task.status if task else ""})
+        self._emit(task_id, "done", {"status": task.status if task else "", "metrics": metrics})
+        logger.info("任务结束 task=%s status=%s metrics=%s", task_id, task.status if task else "-", metrics)
 
+    def _set_status(self, task_id: int, status: str) -> None:
+        with session_scope() as db:
+            task = db.get(EvalTask, task_id)
+            if task is not None:
+                task.status = status
 
-def _as_float(value: Any, default: float = 0.0) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
+    @staticmethod
+    def _emit(task_id: int, event: str, data: dict[str, Any]) -> None:
+        BUS.publish_threadsafe(task_id, event, data)
 
+    # ---------------------------------------------------------------- 控制
 
-def _as_int(value: Any, default: int = 0) -> int:
-    try:
-        return int(float(value))
-    except (TypeError, ValueError):
-        return default
+    def set_max_parallel(self, value: int) -> None:
+        """运行期调整并发额度，新提交的任务立即使用新的信号量。"""
+        limit = max(1, min(int(value), 8))
+        self.settings.scheduler.max_parallel_tasks = limit
+        self._semaphore = asyncio.Semaphore(limit)
+        logger.info("并发额度已调整为 %s", limit)
 
+    async def pause(self, task_id: int) -> str:
+        runtime = self._runtime.get(task_id)
+        if runtime is None:
+            raise RuntimeError("任务当前未在运行，无法暂停")
+        runtime["ctx"].pause_event.set()
+        return "pausing"
 
-def _supports_frame_dump(script: Path) -> bool:
-    """上游脚本是否支持 --dump_frames（老版本代码里没有这个开关）。"""
-    try:
-        return "--dump_frames" in script.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return False
+    async def resume(self, task_id: int) -> str:
+        runtime = self._runtime.get(task_id)
+        if runtime is None:
+            with session_scope() as db:
+                task = task_service.get_task(db, task_id)
+                if task.status != "paused":
+                    raise RuntimeError("任务不在暂停状态")
+                task.status = "queued"
+            self.submit(task_id)
+            return "queued"
+        runtime["ctx"].pause_event.clear()
+        return "running"
 
+    async def cancel(self, task_id: int) -> str:
+        with session_scope() as db:
+            task = task_service.get_task(db, task_id)
+            if task.status in task_service.TERMINAL_STATUS:
+                return task.status
 
-class StreamVLNAdapter(BaseAdapter):
-    name = "streamvln"
+        runtime = self._runtime.get(task_id)
+        if runtime is None:
+            with session_scope() as db:
+                task = task_service.get_task(db, task_id)
+                task.status = "canceled"
+                task.finished_at = task_service.now_str()
+            self._emit(task_id, "state", {"status": "canceled"})
+            return "canceled"
 
-    def __init__(self, ctx):
-        super().__init__(ctx)
-        self.proc: subprocess.Popen | None = None
-        self.result_path: Path | None = None
-        # 逐帧回放元数据目录（评测脚本 --dump_frames 的输出），脚本不支持时为 None
-        self.replay_dir: Path | None = None
-        self._buffer = ""
-        self._offset = 0
-        self._seen: set[str] = set()
-        self._log_queue: Queue[str] = Queue()
-        self._tail: deque[str] = deque(maxlen=40)
-        self._reader: threading.Thread | None = None
-
-    # ---------------------------------------------------------------- 准备
-
-    def prepare(self) -> None:
-        model = self.ctx.model
-        code_path = Path(str(model.get("code_path") or "")).expanduser()
-        if not code_path.exists():
-            raise RuntimeError(f"代码目录不存在：{code_path}")
-
-        script = code_path / "streamvln" / "streamvln_eval.py"
-        if not script.exists():
-            raise RuntimeError(f"未找到评测脚本：{script}")
-
-        weights = Path(str(model.get("weights_path") or "")).expanduser()
-        if not weights.exists():
-            raise RuntimeError(f"权重目录不存在：{weights}")
-
-        launcher = str(model.get("entry") or "torchrun").strip()
-        launcher_path = launcher if Path(launcher).is_absolute() else shutil.which(launcher)
-        if not launcher_path or not Path(launcher_path).exists():
-            raise RuntimeError(f"找不到启动器：{launcher}，请检查模型档案中的入口配置")
-
-        raw_dir = self.ctx.run_dir / "raw"
-        raw_dir.mkdir(parents=True, exist_ok=True)
-        self.result_path = raw_dir / "result.json"
-
-        # 逐帧回放：上游脚本带 --dump_frames 才开启，老版本代码自动降级为「只有汇总指标」
-        self.replay_dir = raw_dir / "frames" if _supports_frame_dump(script) else None
-        if self.replay_dir is None:
-            self.ctx.log("评测脚本不支持 --dump_frames，本次不产出逐帧回放数据")
-
-        command = self._build_command(str(launcher_path), script, weights, raw_dir)
-        self.ctx.log("启动命令：" + " ".join(command))
-
-        env = os.environ.copy()
-        config = self.ctx.config
-        gpu_ids = str(config.get("gpu_ids") or "").strip()
-        env["CUDA_VISIBLE_DEVICES"] = gpu_ids or "0"
-        env.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
-        env.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
-        env.setdefault("MAGNUM_LOG", "quiet")
-        env.setdefault("HABITAT_SIM_LOG", "quiet")
-
-        self.proc = subprocess.Popen(  # noqa: S603 - 命令由本地配置拼装
-            command,
-            cwd=str(code_path),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-            env=env,
-            start_new_session=True,
-        )
-        self._reader = threading.Thread(target=self._read_output, daemon=True)
-        self._reader.start()
-        self.ctx.log(f"子进程已启动 pid={self.proc.pid}")
-
-    def _build_command(
-        self, launcher: str, script: Path, weights: Path, raw_dir: Path
-    ) -> list[str]:
-        config = self.ctx.config
-        eval_split = str(config.get("eval_split") or "val_unseen")
-        seed = int(config.get("seed", 42))
-        command = [
-            launcher,
-            "--nproc_per_node=1",
-            f"--master_port={config.get('master_port', 29611)}",
-            str(script),
-            "--model_path",
-            str(weights),
-            "--eval_split",
-            eval_split,
-            "--output_path",
-            str(raw_dir),
-            "--seed",
-            str(seed),
-        ]
-        if self.replay_dir is not None:
-            command.extend(["--dump_frames", str(self.replay_dir)])
-
-        extra = config.get("adapter", {}).get("extra_args") or []
-        if extra:
-            command.extend([str(item) for item in extra])
-            return command
-
-        command.extend(["--num_history", str(int(config.get("history_len", 8)))])
-        command.extend(["--num_future_steps", str(int(config.get("num_future_steps", 4)))])
-        if config.get("memory_policy") == "spatial_prune":
-            prune_ratio = float(config.get("prune_ratio", 0.0))
-            command.extend(["--prune_mode", "voxel"])
-            if 0 < prune_ratio < 1:
-                command.extend(["--prune_keep_ratio", f"{1 - prune_ratio:.3f}"])
-        return command
-"""指标分析与诊断服务。
-
-包含四类分析：
-1. 多任务指标矩阵与基线差值
-2. 按「模态组合 × 记忆策略」聚合的消融矩阵
-3. 同一 episode 集合上的配对 bootstrap 显著性检验
-4. 长时性能分桶与失败归因
-"""
-
-from __future__ import annotations
-
-import json
-from collections import defaultdict
-from typing import Any, Iterable
-
-import numpy as np
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-from ..core.response import PARAM_INVALID, AppError
-from ..models import Dataset, Episode, EvalTask, TaskEpisode
-
-METRIC_COLUMNS = [
-    {"key": "sr", "label": "SR", "better": "higher", "format": "percent", "unit": ""},
-    {"key": "spl", "label": "SPL", "better": "higher", "format": "percent", "unit": ""},
-    {"key": "ne", "label": "NE", "better": "lower", "format": "number", "unit": "m"},
-    {"key": "os", "label": "OS", "better": "higher", "format": "percent", "unit": ""},
-    {"key": "ndtw", "label": "nDTW", "better": "higher", "format": "percent", "unit": ""},
-    {"key": "tl", "label": "TL", "better": "lower", "format": "number", "unit": "m"},
-    {"key": "latency_avg_ms", "label": "Latency", "better": "lower", "format": "number", "unit": "ms"},
-    {"key": "gpu_mem_peak_mb", "label": "VRAM", "better": "lower", "format": "number", "unit": "MB"},
-]
-
-DEFAULT_METRICS = {"sr": 0.0, "spl": 0.0, "ne": 0.0, "os": 0.0, "ndtw": 0.0, "tl": 0.0,
-                   "latency_avg_ms": 0.0, "gpu_mem_peak_mb": 0.0}
-
-FAILURE_LABELS = {
-    "timeout": "超时",
-    "collision": "碰撞",
-    "off_track": "偏离轨迹",
-    "loop": "原地打转",
-    "stuck": "卡死",
-    "early_stop": "提前停止",
-    "goal_unreachable": "目标不可达",
-    "parse_error": "动作解析失败",
-    "oom": "显存不足",
-    "unknown": "未知",
-}
+        runtime["ctx"].cancel_event.set()
+        adapter = runtime.get("adapter")
+        if adapter is not None:
+            await asyncio.to_thread(adapter.stop)
+        return "canceling"
 
 
-def reason_label(reason: str) -> str:
-    return FAILURE_LABELS.get(reason, reason or "未知")
+_scheduler: Scheduler | None = None
 
 
-def _loads(text: str | None, default: Any) -> Any:
-    try:
-        return json.loads(text or "")
-    except (json.JSONDecodeError, TypeError):
-        return default
-
-
-def _loads_dict(text: str | None) -> dict[str, Any]:
-    value = _loads(text, {})
-    return value if isinstance(value, dict) else {}
-
-
-def _get_tasks(db: Session, task_ids: Iterable[int]) -> list[EvalTask]:
-    ids = list(dict.fromkeys(int(item) for item in task_ids))
-    if not ids:
-        raise AppError(PARAM_INVALID, "请至少选择一个任务")
-    rows = db.scalars(select(EvalTask).where(EvalTask.id.in_(ids))).all()
-    if len(rows) != len(ids):
-        raise AppError(PARAM_INVALID, "部分任务不存在")
-    order = {task_id: index for index, task_id in enumerate(ids)}
-    return sorted(rows, key=lambda task: order[task.id])
-
-
-def _task_row(db: Session, task: EvalTask) -> dict[str, Any]:
-    metrics = {**DEFAULT_METRICS, **_loads_dict(task.metrics_json)}
-    config = _loads_dict(task.config_json)
-    dataset = db.get(Dataset, task.dataset_id)
-    return {
-        "task_id": task.id,
-        "name": task.name,
-        "status": task.status,
-        "dataset": dataset.name if dataset else "",
-        "modality": config.get("modality", "vision"),
-        "memory_policy": config.get("memory_policy", "fixed_window"),
-        "history_len": config.get("history_len"),
-        "seed": config.get("seed"),
-        "episodes": int(metrics.get("episodes") or 0),
-        "values": {column["key"]: round(float(metrics.get(column["key"]) or 0), 4) for column in METRIC_COLUMNS},
-    }
-
-
-def list_candidates(db: Session, limit: int = 200) -> list[dict[str, Any]]:
-    """可选任务列表：只保留已有指标聚合结果的任务，供分析页下拉框使用。"""
-    tasks = db.scalars(
-        select(EvalTask)
-        .where(EvalTask.status.in_(("succeeded", "failed", "canceled")))
-        .order_by(EvalTask.id.desc())
-        .limit(max(1, min(int(limit), 500)))
-    ).all()
-    rows = [_task_row(db, task) for task in tasks]
-    return [row for row in rows if row["episodes"] > 0]
-
-
-def compare(db: Session, task_ids: list[int], baseline_id: int | None = None) -> dict[str, Any]:
-    tasks = _get_tasks(db, task_ids)
-    rows = [_task_row(db, task) for task in tasks]
-
-    baseline = baseline_id or rows[0]["task_id"]
-    if baseline not in {row["task_id"] for row in rows}:
-        baseline = rows[0]["task_id"]
-
-    delta: dict[str, dict[int, float]] = {column["key"]: {} for column in METRIC_COLUMNS}
-    base_row = next(row for row in rows if row["task_id"] == baseline)
-    for row in rows:
-        for column in METRIC_COLUMNS:
-            key = column["key"]
+def get_scheduler() -> Scheduler:
+    global _scheduler
+    if _scheduler is None:
+        _scheduler = Scheduler()
+    return _scheduler
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'
@@ -2404,558 +2649,419 @@ export const useAuthStore = defineStore('auth', {
     },
   },
 })
-<template>
-  <div class="page">
-    <div class="page-header">
-      <div>
-        <h2 class="page-title">总览</h2>
-        <div class="page-subtitle">评测资产、任务队列与运行环境状态</div>
-      </div>
-      <el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
-    </div>
-
-    <div class="stats page-grid">
-      <div
-        v-for="(item, index) in stats"
-        :key="item.label"
-        class="stat-card panel span-3"
-        :class="{ 'stat-primary': index === 0 }"
-      >
-        <div class="stat-icon" :style="{ background: item.bg, color: item.color }">
-          <el-icon :size="18"><component :is="item.icon" /></el-icon>
-        </div>
-        <div class="stat-body">
-          <div class="stat-label">{{ item.label }}</div>
-          <div class="stat-value">{{ item.value }}</div>
-          <div class="stat-foot">{{ item.foot }}</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="body-grid page-grid">
-      <section class="panel span-8">
-        <div class="panel-header">
-          <span class="panel-title">最近评测任务</span>
-          <div class="queue-chips">
-            <span class="chip"><i class="dot queued" />{{ queue.queued }} 排队</span>
-            <span class="chip"><i class="dot running" />{{ queue.running }} 运行</span>
-            <span class="chip"><i class="dot paused" />{{ queue.paused }} 暂停</span>
-          </div>
-        </div>
-
-        <el-table
-          :data="overview?.recent_tasks || []"
-          v-loading="loading"
-          size="default"
-          empty-text="暂无评测任务，完成 M3 里程碑后可在此发起评测"
-          :header-cell-style="{ fontSize: '12px' }"
-        >
-          <el-table-column prop="id" label="#" width="64" />
-          <el-table-column prop="name" label="任务名称" min-width="200" show-overflow-tooltip>
-            <template #default="{ row }">
-              <span class="task-name">{{ row.name }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="数据集 / 模型" min-width="220" show-overflow-tooltip>
-            <template #default="{ row }">
-              <div class="task-sub">{{ row.dataset }}</div>
-              <div class="task-sub muted">{{ row.model }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="进度" width="120">
-            <template #default="{ row }">
-              <span class="mono small">{{ row.progress_done }}/{{ row.progress_total || '—' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="SR" width="86">
-            <template #default="{ row }">
-              <span v-if="row.sr !== null && row.sr !== undefined">{{ formatPercent(row.sr) }}</span>
-              <span v-else class="muted">—</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="104">
-            <template #default="{ row }">
-              <el-tag :type="statusMeta(row.status).type" size="small" effect="light" round>
-                {{ statusMeta(row.status).label }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="queued_at" label="提交时间" width="164">
-            <template #default="{ row }">
-              <span class="mono small muted">{{ row.queued_at || '—' }}</span>
-            </template>
-          </el-table-column>
-        </el-table>
-      </section>
-
-      <div class="side span-4">
-        <section class="panel">
-          <div class="panel-header">
-            <span class="panel-title">存储与算力</span>
-            <el-tag size="small" effect="plain" type="info">本机</el-tag>
-          </div>
-          <div class="panel-body">
-            <div class="kv">
-              <span>磁盘可用</span>
-              <b>{{ status?.disk_free_gb ?? '—' }} GB / {{ status?.disk_total_gb ?? '—' }} GB</b>
-            </div>
-            <el-progress
-              :percentage="diskPercent"
-              :stroke-width="6"
-              :show-text="false"
-              color="#2f6fed"
-            />
-            <div class="kv" style="margin-top: 14px">
-              <span>数据库</span>
-              <b>{{ status?.db_size_mb ?? '—' }} MB</b>
-            </div>
-            <div class="kv">
-              <span>工作目录</span>
-              <b class="mono tiny">{{ status?.work_dir || '—' }}</b>
-            </div>
-
-            <el-divider />
-
-            <div class="gpu-head">
-              <span>GPU</span>
-              <el-tag v-if="gpus.length" size="small" type="success" effect="plain">
-                {{ gpus.length }} 卡
-              </el-tag>
-            </div>
-            <div v-if="gpus.length" class="gpu-list">
-              <div v-for="gpu in gpus" :key="gpu.index" class="gpu-item">
-                <div class="flex-between">
-                  <span class="gpu-name">#{{ gpu.index }} {{ gpu.name }}</span>
-                  <span class="mono small">{{ gpu.memory_used_mb }}/{{ gpu.memory_total_mb }} MB</span>
-                </div>
-                <el-progress
-                  :percentage="gpuPercent(gpu)"
-                  :stroke-width="5"
-                  :show-text="false"
-                  color="#16a34a"
-                />
-              </div>
-            </div>
-            <el-empty
-              v-else
-              description="未检测到 NVIDIA GPU，离线演示模式仍可用"
-              :image-size="50"
-            />
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-header">
-            <span class="panel-title">评测流程</span>
-          </div>
-          <div class="panel-body steps">
-            <div v-for="step in steps" :key="step.index" class="step">
-              <span class="step-index">{{ step.index }}</span>
-              <div class="step-main">
-                <div class="step-title">{{ step.title }}</div>
-                <div class="step-desc">{{ step.desc }}</div>
-              </div>
-              <el-tag size="small" :type="step.type" effect="plain">{{ step.tag }}</el-tag>
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
-  </div>
-</template>
-
-<script setup>
-import { computed, onMounted, ref } from 'vue'
-import { Refresh } from '@element-plus/icons-vue'
-import { api } from '@/api'
-
-const loading = ref(false)
-const overview = ref(null)
-const status = ref(null)
-
-const queue = computed(() => overview.value?.queue || { queued: 0, running: 0, paused: 0 })
-const gpus = computed(() => status.value?.gpu?.items || [])
-
-const stats = computed(() => {
-  const counts = overview.value?.counts || {}
-  const rate = overview.value?.finish_rate
-  return [
-    {
-      label: '数据集',
-      value: counts.datasets ?? 0,
-      foot: `${counts.episodes ?? 0} 条 episode`,
-      icon: 'FolderOpened',
-      bg: '#eaf1ff',
-      color: '#2f6fed',
-    },
-    {
-      label: '模型档案',
-      value: counts.models ?? 0,
-      foot: '含离线演示适配器',
-      icon: 'Cpu',
-      bg: '#ecfdf3',
-      color: '#16a34a',
-    },
-    {
-      label: '评测任务',
-      value: counts.tasks ?? 0,
-      foot: rate === null || rate === undefined ? '暂无完成任务' : `任务完成率 ${(rate * 100).toFixed(1)}%`,
-      icon: 'VideoPlay',
-      bg: '#fff7ed',
-      color: '#d97706',
-    },
-    {
-      label: '逐条结果',
-      value: counts.episode_results ?? 0,
-      foot: '任务级 episode 明细',
-      icon: 'DataLine',
-      bg: '#f5f3ff',
-      color: '#7c3aed',
-    },
-  ]
-})
-
-const diskPercent = computed(() => {
-  const total = status.value?.disk_total_gb || 0
-  const free = status.value?.disk_free_gb || 0
-  if (!total) return 0
-  return Math.min(100, Math.round(((total - free) / total) * 100))
-})
-
-const steps = [
-  { index: 1, title: '登记数据集与切分', desc: '扫描 episode、生成 smoke/subset', tag: 'M2', type: 'warning' },
-  { index: 2, title: '创建并执行评测任务', desc: '配置快照、队列调度、实时监控', tag: 'M3', type: 'info' },
-  { index: 3, title: '指标对比与失败诊断', desc: '消融矩阵、配对显著性、归因', tag: 'M4', type: 'info' },
-  { index: 4, title: '轨迹回放与报告导出', desc: '四区联动回放、Markdown 报告', tag: 'M5', type: 'info' },
+export const DATASET_KINDS = [
+  { value: 'r2r_ce', label: 'R2R-CE' },
+  { value: 'rxr_ce', label: 'RxR-CE' },
+  { value: 'custom', label: '自定义' },
 ]
 
-function gpuPercent(gpu) {
-  if (!gpu.memory_total_mb) return 0
-  return Math.round((gpu.memory_used_mb / gpu.memory_total_mb) * 100)
+export function kindLabel(kind) {
+  return DATASET_KINDS.find((item) => item.value === kind)?.label || kind || '未知'
 }
 
-function formatPercent(value) {
-  return `${(Number(value) * 100).toFixed(1)}%`
-}
-
-function statusMeta(value) {
+export function datasetStatus(status) {
   const map = {
-    queued: { label: '排队中', type: 'info' },
-    preparing: { label: '准备中', type: 'warning' },
-    running: { label: '运行中', type: 'primary' },
-    paused: { label: '已暂停', type: 'warning' },
-    succeeded: { label: '已完成', type: 'success' },
-    failed: { label: '失败', type: 'danger' },
-    canceled: { label: '已取消', type: 'info' },
+    ready: { label: '可用', type: 'success' },
+    missing: { label: '路径缺失', type: 'danger' },
+    invalid: { label: '格式异常', type: 'warning' },
+    unknown: { label: '未扫描', type: 'info' },
   }
-  return map[value] || { label: value || '未知', type: 'info' }
+  return map[status] || { label: status || '未知', type: 'info' }
 }
 
-async function load() {
-  loading.value = true
-  try {
-    const [overviewData, statusData] = await Promise.all([api.overview(), api.systemStatus()])
-    overview.value = overviewData
-    status.value = statusData
-  } finally {
-    loading.value = false
-  }
+export function formatBytes(value) {
+  const size = Number(value) || 0
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / 1024 / 1024).toFixed(2)} MB`
 }
 
-onMounted(load)
-</script>
-
-<style scoped>
-.stats {
-  margin-bottom: var(--nav-grid-gap);
+export function formatPercent(value, digits = 1) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
+  return `${(Number(value) * 100).toFixed(digits)}%`
 }
 
-.stat-card {
-  display: flex;
-  gap: 14px;
-  padding: 16px;
-  align-items: flex-start;
+export function formatNumber(value, digits = 2) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
+  return Number(value).toFixed(digits)
 }
 
-.stat-primary {
-  background: #f4f8ff;
-  box-shadow: inset 3px 0 0 var(--nav-accent);
+export function shortTime(value) {
+  return value || '—'
 }
 
-.stat-primary .stat-value {
-  font-size: 32px;
-  color: var(--nav-accent-deep);
+const FAILURE_LABELS = {
+  timeout: '超时',
+  collision: '碰撞',
+  off_track: '偏离轨迹',
+  loop: '原地打转',
+  stuck: '卡死',
+  early_stop: '提前停止',
+  goal_unreachable: '目标不可达',
+  parse_error: '动作解析失败',
+  oom: '显存不足',
+  unknown: '未知',
 }
 
-.stat-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 38px;
+export function failureLabel(reason) {
+  return FAILURE_LABELS[reason] || reason || '未知'
 }
-
-.stat-label {
-  font-size: 12px;
-  color: var(--nav-text-muted);
-}
-
-.stat-value {
-  font-size: 28px;
 <template>
-  <div ref="container" class="trajectory" :style="{ height: `${height}px` }">
-    <canvas
-      ref="canvas"
-      @mousemove="onMove"
-      @mouseleave="onLeave"
-      @click="onClick"
-    />
-    <div v-if="!trajectory.length && !reference.length" class="empty">
-      <el-icon :size="22"><Position /></el-icon>
-      <span>暂无轨迹数据</span>
-    </div>
-    <div v-else-if="trajectory.length" class="hint">点击轨迹定位到对应帧</div>
-  </div>
+  <div ref="container" class="chart" :style="{ height: `${height}px` }" />
 </template>
 
 <script setup>
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import * as echarts from 'echarts'
 
 const props = defineProps({
-  trajectory: { type: Array, default: () => [] },
-  reference: { type: Array, default: () => [] },
-  start: { type: Array, default: null },
-  goal: { type: Array, default: null },
-  bounds: { type: Object, default: null },
+  option: { type: Object, required: true },
+  height: { type: Number, default: 280 },
+})
+
+const container = ref(null)
+let chart = null
+let observer = null
+
+function render() {
+  if (!chart) return
+  chart.setOption(props.option || {}, true)
+}
+
+onMounted(() => {
+  chart = echarts.init(container.value)
+  render()
+  observer = new ResizeObserver(() => chart && chart.resize())
+  observer.observe(container.value)
+})
+
+onBeforeUnmount(() => {
+  if (observer) observer.disconnect()
+  if (chart) chart.dispose()
+  chart = null
+})
+
+watch(() => props.option, render, { deep: true })
+</script>
+
+<style scoped>
+.chart {
+  width: 100%;
+}
+</style>
+<template>
+  <div ref="container" class="chart" :style="{ height: `${height}px` }" />
+</template>
+
+<script setup>
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import * as echarts from 'echarts'
+
+const props = defineProps({
+  xAxis: { type: Array, default: () => [] },
+  series: { type: Array, default: () => [] },
+  yName: { type: String, default: '' },
+  height: { type: Number, default: 220 },
+})
+
+const container = ref(null)
+let chart = null
+let observer = null
+
+function render() {
+  if (!chart) return
+  chart.setOption(
+    {
+      grid: { left: 52, right: 18, top: 30, bottom: 26 },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(15,23,42,0.9)',
+        borderWidth: 0,
+        textStyle: { color: '#e2e8f0', fontSize: 11 },
+      },
+      legend: {
+        show: props.series.length > 1,
+        right: 0,
+        top: 0,
+        itemWidth: 10,
+        itemHeight: 10,
+        textStyle: { color: '#64748b', fontSize: 11 },
+      },
+      xAxis: {
+        type: 'category',
+        data: props.xAxis,
+        boundaryGap: false,
+        axisLine: { lineStyle: { color: '#e5eaf2' } },
+        axisTick: { show: false },
+        axisLabel: { color: '#94a3b8', fontSize: 10 },
+      },
+      yAxis: {
+        type: 'value',
+        name: props.yName,
+        nameTextStyle: { color: '#94a3b8', fontSize: 10 },
+        splitLine: { lineStyle: { color: '#eef2f8' } },
+        axisLabel: { color: '#94a3b8', fontSize: 10 },
+      },
+      series: props.series.map((item) => ({
+        name: item.name,
+        type: 'line',
+        smooth: true,
+        showSymbol: false,
+        data: item.data,
+        lineStyle: { width: 2, color: item.color },
+        itemStyle: { color: item.color },
+        areaStyle: item.area
+          ? {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: `${item.color}33` },
+                { offset: 1, color: `${item.color}00` },
+              ]),
+            }
+          : undefined,
+      })),
+    },
+    true,
+  )
+}
+
+onMounted(() => {
+  chart = echarts.init(container.value)
+  render()
+  observer = new ResizeObserver(() => chart && chart.resize())
+  observer.observe(container.value)
+})
+
+onBeforeUnmount(() => {
+  if (observer) observer.disconnect()
+  if (chart) chart.dispose()
+  chart = null
+})
+
+watch(() => [props.xAxis, props.series], render, { deep: true })
+</script>
+
+<style scoped>
+.chart {
+  width: 100%;
+}
+</style>
+<template>
+  <div class="memory">
+    <div class="legend">
+      <span><i class="dot normal" />上下文长度</span>
+      <span><i class="dot slow" />慢记忆更新</span>
+      <span><i class="dot prune" />token 裁剪</span>
+    </div>
+    <div ref="container" class="chart" :style="{ height: `${height}px` }">
+      <canvas ref="canvas" @click="onClick" />
+    </div>
+    <div class="ticks">
+      <span>0</span>
+      <span class="mono">{{ maxValue.toLocaleString() }} token</span>
+      <span>{{ frames.length }} 帧</span>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+
+const props = defineProps({
+  frames: { type: Array, default: () => [] },
   index: { type: Number, default: 0 },
-  yaw: { type: Number, default: 0 },
-  height: { type: Number, default: 360 },
-  showReference: { type: Boolean, default: true },
-  showCorridor: { type: Boolean, default: true },
-  showTrail: { type: Boolean, default: true },
+  height: { type: Number, default: 74 },
 })
 
 const emit = defineEmits(['seek'])
 
 const container = ref(null)
 const canvas = ref(null)
-const hoverIndex = ref(-1)
 let ctx = null
 let observer = null
-let view = { scale: 1, ox: 0, oy: 0, width: 0, height: 0 }
-
-function allPoints() {
-  const points = [...props.trajectory]
-  if (props.showReference) points.push(...props.reference)
-  if (props.start) points.push(props.start)
-  if (props.goal) points.push(props.goal)
-  return points.filter((point) => Array.isArray(point) && point.length >= 2)
-}
-
-function layout() {
-  const rect = container.value?.getBoundingClientRect()
-  if (!rect) return
-  const dpr = window.devicePixelRatio || 1
-  const node = canvas.value
-  node.width = Math.max(1, Math.round(rect.width * dpr))
-  node.height = Math.max(1, Math.round(rect.height * dpr))
-  ctx = node.getContext('2d')
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-
-  const points = allPoints()
-  const width = rect.width
-  const height = rect.height
-  if (!points.length) {
-    view = { scale: 1, ox: width / 2, oy: height / 2, width, height }
-    return
-  }
-  const xs = points.map((point) => point[0])
-  const zs = points.map((point) => point[1])
-  const minX = Math.min(...xs)
-  const maxX = Math.max(...xs)
-  const minZ = Math.min(...zs)
-  const maxZ = Math.max(...zs)
-  const padding = 34
-  const scale = Math.min(
-    (width - padding * 2) / Math.max(maxX - minX, 0.8),
-    (height - padding * 2) / Math.max(maxZ - minZ, 0.8),
-  )
-  view = {
-    scale,
-    ox: width / 2 - ((minX + maxX) / 2) * scale,
-    oy: height / 2 - ((minZ + maxZ) / 2) * scale,
-    width,
-    height,
-    minX,
-    maxX,
-    minZ,
-    maxZ,
-  }
-}
-
-function project(point) {
-  return [view.ox + point[0] * view.scale, view.oy + point[1] * view.scale]
-}
-
-function drawGrid() {
-  if (!ctx) return
-  const { width, height } = view
-  ctx.save()
-  ctx.strokeStyle = '#eef3fa'
-  ctx.lineWidth = 1
-  const step = view.scale > 40 ? 1 : view.scale > 16 ? 2 : 5
-  if (view.minX !== undefined) {
-    for (let x = Math.ceil(view.minX / step) * step; x <= view.maxX; x += step) {
-      const [sx] = project([x, view.minZ])
-      ctx.beginPath()
-      ctx.moveTo(sx, 0)
-      ctx.lineTo(sx, height)
-      ctx.stroke()
-    }
-    for (let z = Math.ceil(view.minZ / step) * step; z <= view.maxZ; z += step) {
-      const [, sy] = project([view.minX, z])
-      ctx.beginPath()
-      ctx.moveTo(0, sy)
-      ctx.lineTo(width, sy)
-      ctx.stroke()
-    }
-  }
-  ctx.restore()
-}
-
-function strokePath(points, color, width, dash = []) {
-  if (!ctx || points.length < 2) return
-  ctx.save()
-  ctx.strokeStyle = color
-  ctx.lineWidth = width
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-  ctx.setLineDash(dash)
-  ctx.beginPath()
-  points.forEach((point, index) => {
-    const [x, y] = project(point)
-    if (index === 0) ctx.moveTo(x, y)
-    else ctx.lineTo(x, y)
-  })
-  ctx.stroke()
-  ctx.restore()
-}
-
-function marker(point, color, label, ring = false) {
-  if (!ctx || !point) return
-  const [x, y] = project(point)
-  ctx.save()
-  ctx.beginPath()
-  ctx.arc(x, y, ring ? 7 : 6, 0, Math.PI * 2)
-  ctx.fillStyle = color
-  ctx.fill()
-  ctx.lineWidth = 2
-  ctx.strokeStyle = '#ffffff'
-  ctx.stroke()
-  if (label) {
-    ctx.fillStyle = '#334155'
-    ctx.font = '600 11px "Segoe UI", sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'bottom'
-    ctx.fillText(label, x, y - 10)
-  }
-  ctx.restore()
-}
-
-function drawCurrent() {
-  const frame = props.trajectory[props.index]
-  if (!ctx || !frame) return
-  const [x, y] = project(frame)
-  let angle = props.yaw
-  if (props.index > 0) {
-    const prev = props.trajectory[props.index - 1]
-    angle = Math.atan2(frame[1] - prev[1], frame[0] - prev[0])
-  }
-  ctx.save()
-  ctx.translate(x, y)
-  ctx.beginPath()
-  ctx.arc(0, 0, 13, 0, Math.PI * 2)
-  ctx.fillStyle = 'rgba(47,111,237,0.16)'
-  ctx.fill()
-
-  ctx.rotate(angle)
-  ctx.beginPath()
-  ctx.moveTo(11, 0)
-  ctx.lineTo(-6, 6)
-  ctx.lineTo(-3, 0)
-  ctx.lineTo(-6, -6)
-  ctx.closePath()
-  ctx.fillStyle = '#2f6fed'
-  ctx.fill()
-  ctx.lineWidth = 1.5
-  ctx.strokeStyle = '#ffffff'
-  ctx.stroke()
-  ctx.restore()
-}
+const maxValue = computed(() =>
+  Math.max(1, ...props.frames.map((frame) => Number(frame.ctx_len || 0))),
+)
 
 function draw() {
-  if (!ctx || !container.value) return
-  const { width, height } = view
+  const rect = container.value?.getBoundingClientRect()
+  if (!rect || !canvas.value) return
+  const dpr = window.devicePixelRatio || 1
+  const width = rect.width
+  const height = rect.height
+  canvas.value.width = Math.max(1, Math.round(width * dpr))
+  canvas.value.height = Math.max(1, Math.round(height * dpr))
+  ctx = canvas.value.getContext('2d')
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, width, height)
-  drawGrid()
 
-  if (props.showCorridor && props.reference.length > 1) {
-    strokePath(props.reference, 'rgba(47,111,237,0.10)', 26)
-    strokePath(props.reference, 'rgba(47,111,237,0.16)', 14)
+  const frames = props.frames
+  if (!frames.length) return
+
+  const bottom = height - 5
+  const gap = frames.length > 90 ? 0 : 1
+  const barWidth = Math.max(1, width / frames.length - gap)
+  const scale = (bottom - 6) / maxValue.value
+
+  frames.forEach((frame, i) => {
+    const value = Number(frame.ctx_len || 0)
+    const barHeight = Math.max(2, value * scale)
+    const x = (i * width) / frames.length
+    const y = bottom - barHeight
+    const active = i === props.index
+    if (active) {
+      ctx.fillStyle = '#2f6fed'
+    } else if (frame.slow_update) {
+      ctx.fillStyle = '#f8c56b'
+    } else {
+      ctx.fillStyle = '#d8e6f9'
+    }
+    ctx.beginPath()
+    ctx.roundRect(x, y, barWidth, barHeight, 2)
+    ctx.fill()
+
+    if (frame.tokens_after_prune < frame.tokens_before_prune) {
+      ctx.fillStyle = '#ef8a8a'
+      ctx.fillRect(x, y - 3, barWidth, 2)
+    }
+  })
+
+  const [current] = [frames[props.index]]
+  if (current) {
+    const x = (props.index * width) / frames.length
+    ctx.strokeStyle = '#2f6fed'
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.moveTo(x + barWidth / 2, 0)
+    ctx.lineTo(x + barWidth / 2, bottom)
+    ctx.stroke()
+  }
+}
+
+function onClick(event) {
+  if (!props.frames.length) return
+  const rect = canvas.value.getBoundingClientRect()
+  const ratio = (event.clientX - rect.left) / rect.width
+  const index = Math.min(
+    props.frames.length - 1,
+    Math.max(0, Math.floor(ratio * props.frames.length)),
+  )
+  emit('seek', index)
+}
+
+onMounted(() => {
+  draw()
+  observer = new ResizeObserver(draw)
+  observer.observe(container.value)
+})
+
+onBeforeUnmount(() => {
+  if (observer) observer.disconnect()
+  ctx = null
+})
+
+watch(() => [props.frames, props.index], draw, { deep: true })
+</script>
+
+<style scoped>
+.memory {
+  width: 100%;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 11px;
+  color: #7d8fa8;
+  margin-bottom: 6px;
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.dot.normal {
+  background: #d8e6f9;
+}
+
+.dot.slow {
+  background: #f8c56b;
+}
+
+.dot.prune {
+  background: #ef8a8a;
+}
+
+.chart {
+  width: 100%;
+  background: #fbfdff;
+  border: 1px solid #edf2fa;
+  border-radius: 6px;
+}
+
+canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: pointer;
+}
+
+.ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 10px;
+  color: #9aa8bc;
+}
+</style>
 <template>
-  <div class="obs">
-    <div class="obs-head">
-      <div class="tags">
-        <el-tag :type="data.sensors.rgb ? 'success' : 'info'" size="small" effect="plain">
-          RGB {{ data.counts.frames_rgb }} 帧
-        </el-tag>
-        <el-tag :type="data.sensors.depth ? 'success' : 'info'" size="small" effect="plain">
-          深度 {{ data.counts.frames_depth }} 帧
-        </el-tag>
-        <el-tag :type="data.sensors.pose ? 'success' : 'info'" size="small" effect="plain">
-          位姿 {{ data.counts.poses }} 条
-        </el-tag>
-      </div>
-      <span class="source">
-        数据来源：{{ data.source === 'observations' ? '观测目录' : '参考路径' }}
-      </span>
-    </div>
-
-    <div class="obs-body">
-      <div class="viewer">
-        <img v-if="showFrame" :src="frameUrl" class="frame" alt="RGB 帧" />
-        <div v-else class="placeholder">
-          <el-icon :size="22"><Picture /></el-icon>
-          <span>该 episode 未提供 RGB 帧</span>
-          <small>可放置 observations/&lt;episode_id&gt;/rgb/ 后重新扫描</small>
-        </div>
-        <div class="pose-line mono">
-          <span>x {{ poseText(activeItem.pose, 0) }}</span>
-          <span>y {{ poseText(activeItem.pose, 1) }}</span>
-          <span>z {{ poseText(activeItem.pose, 2) }}</span>
-          <span class="muted">t={{ activeItem.t }}s</span>
-        </div>
+  <div v-loading="loading" class="viewer">
+    <div class="screen">
+      <img
+        v-if="src && !failed"
+        :src="src"
+        class="frame"
+        alt="第一视角帧"
+        @load="failed = false"
+        @error="failed = true"
+      />
+      <div v-else class="frame-empty">
+        <el-icon :size="24"><Picture /></el-icon>
+        <span>{{ loading ? '加载帧图像…' : '当前 episode 没有可用帧' }}</span>
       </div>
 
-      <div class="strip">
-        <div
-          v-for="item in data.timeline"
-          :key="item.idx"
-          class="cell"
-          :class="{ active: item.idx === active }"
-          @click="active = item.idx"
-        >
-          <span class="cell-idx">{{ item.idx }}</span>
-          <span class="cell-tag" :class="{ on: item.rgb }">RGB</span>
-        </div>
-        <div v-if="!data.timeline.length" class="empty">无时间轴数据</div>
-      </div>
-    </div>
+      <img v-if="showMask && maskSrc" :src="maskSrc" class="mask" alt="可通行区域掩膜" />
 
-    <div v-if="data.source === 'reference_path'" class="note">
-      当前数据集未提供观测帧与动作序列，时间轴由标注中的参考路径生成，仅用于检查指令与轨迹形态。
+      <div class="hud-top">
+        <span class="hud-chip step">FRAME {{ (frame?.idx ?? 0) + 1 }} / {{ total || 0 }}</span>
+        <span class="hud-chip action" :class="frame?.action || 'forward'">
+          {{ actionLabel(frame?.action) }}
+        </span>
+        <span class="hud-chip mono">{{ latency }} ms</span>
+        <span class="hud-chip mono">W{{ frame?.window_len ?? 0 }}</span>
+      </div>
+
+      <div v-if="!src && !loading" class="empty-hint">
+        Mock 演示帧由服务端按逐帧元数据生成
+      </div>
+
+      <div class="hud-bottom">
+        <div class="instruction">{{ instruction || '—' }}</div>
+        <div class="hud-meta mono">
+          x {{ poseText(0) }} · y {{ poseText(1) }} · z {{ poseText(2) }} · TOKENS
+          {{ frame?.tokens_after_prune ?? 0 }}
+          <span v-if="frame?.slow_update" class="slow">· 慢记忆更新</span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -2964,37 +3070,170 @@ function draw() {
 import { computed, ref, watch } from 'vue'
 
 const props = defineProps({
-  datasetId: { type: Number, required: true },
-  rowId: { type: Number, required: true },
-  data: { type: Object, required: true },
+  src: { type: String, default: '' },
+  maskSrc: { type: String, default: '' },
+  frame: { type: Object, default: null },
+  total: { type: Number, default: 0 },
+  instruction: { type: String, default: '' },
+  loading: { type: Boolean, default: false },
+  showMask: { type: Boolean, default: false },
 })
 
-const active = ref(0)
+const failed = ref(false)
+const latency = computed(() => Number(props.frame?.latency_ms || 0).toFixed(1))
+
+const ACTION_LABELS = {
+  forward: '前进',
+  left: '左转',
+  right: '右转',
+  stop: '停止',
+  turn_left: '左转',
+  turn_right: '右转',
+}
+
+function actionLabel(action) {
+  return ACTION_LABELS[action] || action || '未知'
+}
+
+function poseText(axis) {
+  const value = props.frame?.pose?.[axis]
+  return value === undefined ? '—' : Number(value).toFixed(2)
+}
 
 watch(
-  () => props.data,
+  () => props.src,
   () => {
-    active.value = 0
+    failed.value = false
   },
 )
-
-const activeItem = computed(() => {
-  const items = props.data.timeline || []
-  return items[Math.min(active.value, items.length - 1)] || { idx: 0, t: 0, pose: [], rgb: false }
-})
-
-const showFrame = computed(() => Boolean(activeItem.value.rgb))
-
-const frameUrl = computed(() => {
-  const token = localStorage.getItem('naveval_token') || ''
-  return `/api/datasets/${props.datasetId}/episodes/${props.rowId}/frame/${active.value}?kind=rgb&token=${encodeURIComponent(token)}`
-})
-
-function poseText(pose, index) {
-  if (!pose || pose.length <= index) return '—'
-  return Number(pose[index]).toFixed(2)
-}
 </script>
 
 <style scoped>
-.obs {
+.viewer {
+  width: 100%;
+  height: 100%;
+}
+
+.screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 20%, #1b2c47, #0b1220 70%);
+}
+
+.frame {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.mask {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.5;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.frame-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #6f89ab;
+  font-size: 12px;
+}
+
+.hud-top {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.hud-chip {
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgba(9, 17, 30, 0.68);
+  border: 1px solid rgba(120, 155, 200, 0.22);
+  color: #dbe7f7;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  backdrop-filter: blur(4px);
+}
+
+.hud-chip.step {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+
+.hud-chip.action {
+  color: #08111f;
+  font-weight: 600;
+  border: none;
+}
+
+.hud-chip.action.forward {
+  background: #6aa7ff;
+}
+
+.hud-chip.action.left {
+  background: #4ade80;
+}
+
+.hud-chip.action.right {
+  background: #fbbf24;
+}
+
+.hud-chip.action.stop {
+  background: #cbd5e1;
+}
+
+.hud-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 32px 16px 12px;
+  background: linear-gradient(180deg, transparent, rgba(5, 11, 20, 0.88));
+  pointer-events: none;
+}
+
+.instruction {
+  color: #eaf2ff;
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 92%;
+}
+
+.hud-meta {
+  margin-top: 6px;
+  color: #8fa8c7;
+  font-size: 11px;
+}
+
+.slow {
+  color: #fbbf24;
+}
+
+.empty-hint {
+  position: absolute;
+  left: 12px;
+  bottom: 66px;
+  color: #5f7695;
+  font-size: 11px;
+}
+</style>

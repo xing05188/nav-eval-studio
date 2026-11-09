@@ -40,7 +40,7 @@ from ..models import (
     SplitEpisode,
     TaskEpisode,
 )
-from . import task_service
+from . import replay_service, task_service
 
 MODALITY_INPUTS = {
     "vision": ["rgb"],
@@ -346,8 +346,29 @@ def _free_split_name(db: Session, dataset_id: int, base: str) -> str:
         suffix += 1
 
 
+def _stage_frames(run_dir: Path, source: Path, name: str) -> str:
+    """把历史产物里的逐帧元数据复制进任务工作目录，返回可回放的绝对路径。"""
+    target_dir = run_dir / "frames"
+    target = target_dir / f"{name}.jsonl"
+    try:
+        if target.is_file() and target.stat().st_size == source.stat().st_size:
+            return str(target)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+    except OSError:
+        return ""
+    return str(target)
+
+
 def _new_episode_rows(
-    task_id: int, row_id: int, row: dict[str, Any], index: int, stamp: str
+    task_id: int,
+    row_id: int,
+    row: dict[str, Any],
+    index: int,
+    stamp: str,
+    *,
+    run_dir: Path | None = None,
+    frames_dirs: list[Path] | None = None,
 ) -> tuple[TaskEpisode, ResourceSample | None]:
     """把一条原始结果转换为结果明细与资源采样（新建与增量同步共用）。"""
     success = float(row.get("success") or 0) >= 1.0
@@ -357,6 +378,21 @@ def _new_episode_rows(
     per_step = (float(elapsed) * 1000.0 / steps) if elapsed and steps else 0.0
     gpu = int(float(row.get("peak_gpu_mem_mb") or 0))
     tokens = int(float(row.get("mean_prompt_tokens") or 0))
+
+    # 逐帧回放：历史产物里的 replay_frames/*.jsonl 落到工作目录并写 traj_path
+    traj_path = ""
+    if run_dir is not None and frames_dirs:
+        source = None
+        scene_id = str(row.get("scene_id") or "")
+        raw_key = row.get("episode_id")
+        if raw_key is not None:
+            for directory in frames_dirs:
+                source = replay_service.locate_frame_file(directory, scene_id, str(raw_key))
+                if source is not None:
+                    break
+        if source is not None:
+            name = f"{scene_id}_{raw_key}" if scene_id else str(raw_key)
+            traj_path = _stage_frames(run_dir, source, name)
 
     episode = TaskEpisode(
         task_id=task_id,
@@ -376,7 +412,7 @@ def _new_episode_rows(
         ctx_len_peak=0,
         failure_reason=failure_reason(success, os_value, steps),
         manual_reason="",
-        traj_path="",
+        traj_path=traj_path,
         log_path="",
         updated_at=stamp,
     )
@@ -474,8 +510,12 @@ def _import_one(
     db.add(task)
     db.flush()
 
+    run_dir = get_settings().runs_dir / f"task-{task.id:06d}"
+    frames_dirs = replay_service.frame_dirs(exp_dir)
     for index, (row_id, row) in enumerate(matched, start=1):
-        episode, sample = _new_episode_rows(task.id, row_id, row, index, stamp)
+        episode, sample = _new_episode_rows(
+            task.id, row_id, row, index, stamp, run_dir=run_dir, frames_dirs=frames_dirs
+        )
         db.add(episode)
         if sample is not None:
             db.add(sample)
@@ -525,10 +565,14 @@ def _sync_one(
         for row in db.scalars(select(TaskEpisode).where(TaskEpisode.task_id == task.id)).all()
     }
     added = 0
+    run_dir = get_settings().runs_dir / f"task-{task.id:06d}"
+    frames_dirs = replay_service.frame_dirs(exp_dir)
     for index, (row_id, row) in enumerate(matched, start=1):
         if row_id in known:
             continue
-        episode, sample = _new_episode_rows(task.id, row_id, row, index, stamp)
+        episode, sample = _new_episode_rows(
+            task.id, row_id, row, index, stamp, run_dir=run_dir, frames_dirs=frames_dirs
+        )
         db.add(episode)
         if sample is not None:
             db.add(sample)

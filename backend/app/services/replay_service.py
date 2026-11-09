@@ -33,6 +33,10 @@ ACTION_LABELS = {
 
 IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp")
 
+# 逐帧元数据目录：上游 `--dump_frames` 默认写 replay_frames/，平台自己写 frames/
+FRAME_DIR_NAMES = ("frames", "replay_frames")
+FRAME_SUFFIX = ".jsonl"
+
 
 def _loads(text: str | None, default: Any) -> Any:
     try:
@@ -71,28 +75,95 @@ def _run_dir(task_id: int) -> Path:
     return get_settings().runs_dir / f"task-{task_id:06d}"
 
 
-def _frames_file(task_id: int, row: TaskEpisode, episode_key: str) -> Path | None:
-    settings = get_settings()
-    candidates: list[Path] = []
-    if row.traj_path:
-        path = Path(row.traj_path)
-        if not path.is_absolute():
-            path = _run_dir(task_id) / path
-        candidates.append(path)
-    candidates.append(_run_dir(task_id) / "frames" / f"{episode_key}.jsonl")
+def frame_dirs(exp_dir: Path) -> list[Path]:
+    """评测产物目录里可能存放逐帧元数据的子目录（按优先级）。"""
+    candidates = [
+        exp_dir / "frames",
+        exp_dir / "replay_frames",
+        exp_dir / "raw" / "frames",
+        exp_dir / "streamvln" / "frames",
+    ]
+    return [path for path in candidates if path.is_dir()]
 
-    for path in candidates:
-        try:
-            target = ensure_within(settings.storage.work_dir, path)
-        except AppError:
-            continue
-        if target.is_file():
-            return target
+
+def locate_frame_file(directory: Path, scene_id: str, episode_key: str) -> Path | None:
+    """在逐帧目录里按上游命名 `<scene_id>_<episode_id>.jsonl` 定位单条 episode。"""
+    scene = str(scene_id or "")
+    key = str(episode_key or "")
+    if not key:
+        return None
+
+    names = [f"{scene}_{key}{FRAME_SUFFIX}"] if scene else []
+    names.append(f"{key}{FRAME_SUFFIX}")
+    for name in names:
+        candidate = directory / name
+        if candidate.is_file():
+            return candidate
+
+    # 兼容 episode_id 相同但 scene 前缀写法不同的产物目录
+    for candidate in sorted(directory.glob(f"*_{key}{FRAME_SUFFIX}")):
+        if candidate.is_file():
+            return candidate
     return None
 
 
-def _read_frames(task_id: int, row: TaskEpisode, episode_key: str) -> list[dict[str, Any]]:
-    target = _frames_file(task_id, row, episode_key)
+def _source_frame_dirs(task: EvalTask) -> list[Path]:
+    """导入任务记录的历史产物目录；逐帧数据可能还留在那里。"""
+    config = _loads(task.config_json, {})
+    if not isinstance(config, dict):
+        return []
+    raw = str(config.get("source_dir") or "").strip()
+    if not raw:
+        return []
+    source = Path(raw).expanduser()
+    return frame_dirs(source) if source.is_dir() else []
+
+
+def _frames_file(
+    task: EvalTask, row: TaskEpisode, episode: Episode
+) -> Path | None:
+    """按优先级定位逐帧元数据文件：显式 traj_path → 任务工作目录 → 导入源目录。"""
+    settings = get_settings()
+    work_dir = settings.storage.work_dir
+    scene_id = episode.scene_id or ""
+    episode_key = episode.episode_id
+    run_dir = _run_dir(task.id)
+
+    candidates: list[Path] = []
+    if row.traj_path:
+        path = Path(row.traj_path)
+        candidates.append(path if path.is_absolute() else run_dir / path)
+    for base in (run_dir / "frames", run_dir / "raw" / "frames"):
+        candidates.append(base / f"{episode_key}{FRAME_SUFFIX}")
+        if scene_id:
+            candidates.append(base / f"{scene_id}_{episode_key}{FRAME_SUFFIX}")
+
+    for path in candidates:
+        try:
+            target = ensure_within(work_dir, path)
+        except AppError:
+            # traj_path 绝对路径可能落在工作目录之外（例如手工修正过），仍按文件是否存在判断
+            target = path.expanduser()
+        if target.is_file():
+            return target
+
+    for directory in _source_frame_dirs(task):
+        found = locate_frame_file(directory, scene_id, episode_key)
+        if found is not None:
+            return found
+
+    # 旧任务没有 source_dir 时，退回任务配置里记录的导入目录同名字段
+    config = _loads(task.config_json, {})
+    frames_dir = str(config.get("frames_dir") or "").strip() if isinstance(config, dict) else ""
+    if frames_dir:
+        found = locate_frame_file(Path(frames_dir).expanduser(), scene_id, episode_key)
+        if found is not None:
+            return found
+    return None
+
+
+def _read_frames(task: EvalTask, row: TaskEpisode, episode: Episode) -> list[dict[str, Any]]:
+    target = _frames_file(task, row, episode)
     if target is None:
         return []
 
@@ -218,7 +289,7 @@ def episode_replay(db: Session, task_id: int, row_id: int) -> dict[str, Any]:
     config = _loads(task.config_json, {})
     start = _float_list(_loads(episode.start_pose_json, []))
     goal = _float_list(_loads(episode.goal_pose_json, []))
-    frames = _read_frames(task_id, row, episode.episode_id)
+    frames = _read_frames(task, row, episode)
 
     trajectory = [[round(frame["pose"][0], 3), round(frame["pose"][2], 3)] for frame in frames]
     reference = _reference_path(episode, start, goal)
@@ -376,7 +447,7 @@ def frame_asset(
     if frame_index < 0:
         raise AppError(PARAM_INVALID, "帧序号不能为负数")
     task, row, episode = _get_row(db, task_id, row_id)
-    frames = _read_frames(task_id, row, episode.episode_id)
+    frames = _read_frames(task, row, episode)
 
     image = _frame_file(task_id, episode.episode_id, frame_index)
     if image is not None:

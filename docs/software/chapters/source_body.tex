@@ -1,35 +1,36 @@
 % 由 tools/gen_source.py 自动生成，请勿手工编辑。
-% 共 60 页，每页 50 行，合计 3000 行；第 1--30 页为源程序前部，
-% 第 31--60 页为源程序后部。行号在整册中连续编号 1--3000。
+% 清单内每个源文件均完整收录，未做任何截断；合计 3239 行。
+% 每页 50 行，共 65 页，最后一页 39 行自然收尾；
+% 行号在整册中连续编号 1--3239。
 %
-% 前 30 页选取：
+% 收录文件（按出现顺序，全部完整）：
 %   run.py                                                 86 行
 %   backend/app/main.py                                   217 行
 %   backend/app/core/config.py                            390 行
 %   backend/app/core/security.py                          112 行
 %   backend/app/core/response.py                           63 行
 %   backend/app/core/events.py                             64 行
-%   backend/app/core/paths.py                              49 行
-%   backend/app/core/logging.py                            48 行
 %   backend/app/db/session.py                             163 行
 %   backend/app/models/__init__.py                         28 行
 %   backend/app/models/task.py                            118 行
 %   backend/app/models/dataset.py                          68 行
 %   backend/app/models/user.py                             39 行
 %   backend/app/models/backup.py                           29 行
-%   backend/app/schemas/task.py                            26 行
-% 后 30 页选取：
-%   backend/app/services/scheduler.py                     260 行
-%   backend/app/adapters/streamvln_adapter.py             160 行
-%   backend/app/services/analysis_service.py              120 行
+%   backend/app/adapters/base.py                          112 行
+%   backend/app/adapters/streamvln_adapter.py             369 行
+%   backend/app/services/scheduler.py                     427 行
 %   frontend/src/main.js                                   21 行
 %   frontend/src/App.vue                                    6 行
 %   frontend/src/router/index.js                          127 行
 %   frontend/src/api/index.js                             158 行
 %   frontend/src/store/auth.js                             54 行
-%   frontend/src/views/Overview.vue                       300 行
-%   frontend/src/components/TrajectoryCanvas.vue          200 行
-%   frontend/src/components/ObservationTimeline.vue        94 行
+%   frontend/src/utils/format.js                           57 行
+%   frontend/src/components/BaseChart.vue                  43 行
+%   frontend/src/components/LineChart.vue                  96 行
+%   frontend/src/components/MemoryTimeline.vue            178 行
+%   frontend/src/components/FrameViewer.vue               214 行
+%
+\setsourcetotalpages{65}
 %
 \sourcepage{1}{run.py}{1}{50}
 \sourcepage{2}{run.py}{51}{100}
@@ -50,44 +51,49 @@
 \sourcepage{17}{backend/app/core/security.py}{801}{850}
 \sourcepage{18}{backend/app/core/response.py}{851}{900}
 \sourcepage{19}{backend/app/core/events.py}{901}{950}
-\sourcepage{20}{backend/app/core/paths.py}{951}{1000}
-\sourcepage{21}{backend/app/core/logging.py}{1001}{1050}
+\sourcepage{20}{backend/app/db/session.py}{951}{1000}
+\sourcepage{21}{backend/app/db/session.py}{1001}{1050}
 \sourcepage{22}{backend/app/db/session.py}{1051}{1100}
-\sourcepage{23}{backend/app/db/session.py}{1101}{1150}
-\sourcepage{24}{backend/app/db/session.py}{1151}{1200}
-\sourcepage{25}{backend/app/models/__init__.py}{1201}{1250}
-\sourcepage{26}{backend/app/models/task.py}{1251}{1300}
-\sourcepage{27}{backend/app/models/task.py}{1301}{1350}
-\sourcepage{28}{backend/app/models/dataset.py}{1351}{1400}
-\sourcepage{29}{backend/app/models/dataset.py}{1401}{1450}
-\sourcepage{30}{backend/app/models/backup.py}{1451}{1500}
-\sourcepage{31}{backend/app/services/scheduler.py}{1501}{1550}
-\sourcepage{32}{backend/app/services/scheduler.py}{1551}{1600}
-\sourcepage{33}{backend/app/services/scheduler.py}{1601}{1650}
-\sourcepage{34}{backend/app/services/scheduler.py}{1651}{1700}
-\sourcepage{35}{backend/app/services/scheduler.py}{1701}{1750}
-\sourcepage{36}{backend/app/services/scheduler.py}{1751}{1800}
+\sourcepage{23}{backend/app/models/__init__.py}{1101}{1150}
+\sourcepage{24}{backend/app/models/task.py}{1151}{1200}
+\sourcepage{25}{backend/app/models/task.py}{1201}{1250}
+\sourcepage{26}{backend/app/models/dataset.py}{1251}{1300}
+\sourcepage{27}{backend/app/models/dataset.py}{1301}{1350}
+\sourcepage{28}{backend/app/models/backup.py}{1351}{1400}
+\sourcepage{29}{backend/app/adapters/base.py}{1401}{1450}
+\sourcepage{30}{backend/app/adapters/base.py}{1451}{1500}
+\sourcepage{31}{backend/app/adapters/streamvln_adapter.py}{1501}{1550}
+\sourcepage{32}{backend/app/adapters/streamvln_adapter.py}{1551}{1600}
+\sourcepage{33}{backend/app/adapters/streamvln_adapter.py}{1601}{1650}
+\sourcepage{34}{backend/app/adapters/streamvln_adapter.py}{1651}{1700}
+\sourcepage{35}{backend/app/adapters/streamvln_adapter.py}{1701}{1750}
+\sourcepage{36}{backend/app/adapters/streamvln_adapter.py}{1751}{1800}
 \sourcepage{37}{backend/app/adapters/streamvln_adapter.py}{1801}{1850}
 \sourcepage{38}{backend/app/adapters/streamvln_adapter.py}{1851}{1900}
-\sourcepage{39}{backend/app/adapters/streamvln_adapter.py}{1901}{1950}
-\sourcepage{40}{backend/app/services/analysis_service.py}{1951}{2000}
-\sourcepage{41}{backend/app/services/analysis_service.py}{2001}{2050}
-\sourcepage{42}{frontend/src/main.js}{2051}{2100}
-\sourcepage{43}{frontend/src/router/index.js}{2101}{2150}
-\sourcepage{44}{frontend/src/router/index.js}{2151}{2200}
-\sourcepage{45}{frontend/src/api/index.js}{2201}{2250}
-\sourcepage{46}{frontend/src/api/index.js}{2251}{2300}
-\sourcepage{47}{frontend/src/api/index.js}{2301}{2350}
-\sourcepage{48}{frontend/src/api/index.js}{2351}{2400}
-\sourcepage{49}{frontend/src/store/auth.js}{2401}{2450}
-\sourcepage{50}{frontend/src/views/Overview.vue}{2451}{2500}
-\sourcepage{51}{frontend/src/views/Overview.vue}{2501}{2550}
-\sourcepage{52}{frontend/src/views/Overview.vue}{2551}{2600}
-\sourcepage{53}{frontend/src/views/Overview.vue}{2601}{2650}
-\sourcepage{54}{frontend/src/views/Overview.vue}{2651}{2700}
-\sourcepage{55}{frontend/src/views/Overview.vue}{2701}{2750}
-\sourcepage{56}{frontend/src/components/TrajectoryCanvas.vue}{2751}{2800}
-\sourcepage{57}{frontend/src/components/TrajectoryCanvas.vue}{2801}{2850}
-\sourcepage{58}{frontend/src/components/TrajectoryCanvas.vue}{2851}{2900}
-\sourcepage{59}{frontend/src/components/TrajectoryCanvas.vue}{2901}{2950}
-\sourcepage{60}{frontend/src/components/ObservationTimeline.vue}{2951}{3000}
+\sourcepage{39}{backend/app/services/scheduler.py}{1901}{1950}
+\sourcepage{40}{backend/app/services/scheduler.py}{1951}{2000}
+\sourcepage{41}{backend/app/services/scheduler.py}{2001}{2050}
+\sourcepage{42}{backend/app/services/scheduler.py}{2051}{2100}
+\sourcepage{43}{backend/app/services/scheduler.py}{2101}{2150}
+\sourcepage{44}{backend/app/services/scheduler.py}{2151}{2200}
+\sourcepage{45}{backend/app/services/scheduler.py}{2201}{2250}
+\sourcepage{46}{backend/app/services/scheduler.py}{2251}{2300}
+\sourcepage{47}{frontend/src/main.js}{2301}{2350}
+\sourcepage{48}{frontend/src/router/index.js}{2351}{2400}
+\sourcepage{49}{frontend/src/router/index.js}{2401}{2450}
+\sourcepage{50}{frontend/src/api/index.js}{2451}{2500}
+\sourcepage{51}{frontend/src/api/index.js}{2501}{2550}
+\sourcepage{52}{frontend/src/api/index.js}{2551}{2600}
+\sourcepage{53}{frontend/src/store/auth.js}{2601}{2650}
+\sourcepage{54}{frontend/src/store/auth.js}{2651}{2700}
+\sourcepage{55}{frontend/src/utils/format.js}{2701}{2750}
+\sourcepage{56}{frontend/src/components/BaseChart.vue}{2751}{2800}
+\sourcepage{57}{frontend/src/components/LineChart.vue}{2801}{2850}
+\sourcepage{58}{frontend/src/components/MemoryTimeline.vue}{2851}{2900}
+\sourcepage{59}{frontend/src/components/MemoryTimeline.vue}{2901}{2950}
+\sourcepage{60}{frontend/src/components/MemoryTimeline.vue}{2951}{3000}
+\sourcepage{61}{frontend/src/components/MemoryTimeline.vue}{3001}{3050}
+\sourcepage{62}{frontend/src/components/FrameViewer.vue}{3051}{3100}
+\sourcepage{63}{frontend/src/components/FrameViewer.vue}{3101}{3150}
+\sourcepage{64}{frontend/src/components/FrameViewer.vue}{3151}{3200}
+\sourcepage{65}{frontend/src/components/FrameViewer.vue}{3201}{3239}

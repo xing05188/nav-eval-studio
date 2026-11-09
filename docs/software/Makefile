@@ -3,7 +3,7 @@
 #   make copyright    仅申请表
 #   make design       仅设计说明书
 #   make source       仅源程序
-#   make excerpt      重新从项目源码生成 3000 行源程序摘录
+#   make excerpt      重新从项目源码生成源程序摘录（完整文件、不截断）
 ENGINE  ?= -xelatex
 PYTHON  ?= python3
 
@@ -22,7 +22,7 @@ copyright.pdf: copyright.tex chapters/copyright_body.tex \
 # 把 figures/ 下的图片列为依赖；-g 强制 latexmk 重新编译，
 # 这样「新增图片 → make design」才会重新求值 \IfFileExists 并把占位框换成真图。
 FIGURES := $(wildcard figures/*)
-design.pdf: design.tex chapters/design_body.tex chapters/figure_spec.tex \
+design.pdf: design.tex chapters/design_body.tex \
             style/tongjidesign.sty style/navmeta.tex $(FIGURES)
 	latexmk -g $(ENGINE) design.tex
 

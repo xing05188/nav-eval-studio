@@ -5,8 +5,8 @@
 | 材料 | 编译入口 | 输出 | 说明 |
 | --- | --- | --- | --- |
 | 计算机软件著作权登记申请表 | `copyright.tex` | `copyright.pdf`（3 页） | 沿用原有 `tongjithesis` 表单模板，已按本项目预填 |
-| 设计说明书 | `design.tex` | `design.pdf`（约 45 页） | 十二章正文 + 48 处插图位置 + 插图清单 |
-| 源程序 | `source_code.tex` | `source_code.pdf`（60 页） | 前 30 页 + 后 30 页，每页 50 行，合计 3000 行 |
+| 设计说明书 | `design.tex` | `design.pdf`（31 页） | 十二章正文 + 18 幅插图，无附录 |
+| 源程序 | `source_code.tex` | `source_code.pdf`（60 多页） | 完整源文件顺序、每页 50 行，最后一页自然收尾，合计 3000 多行 |
 
 ## 编译
 
@@ -17,7 +17,7 @@ make                 # 三份一起编译
 make copyright       # 申请表
 make design          # 设计说明书
 make source          # 源程序
-make excerpt         # 代码冻结后重新抽取 3000 行源码
+make excerpt         # 代码冻结后重新抽取源码（完整文件、不截断）
 make clean           # 清理中间文件
 ```
 
@@ -29,17 +29,17 @@ make clean           # 清理中间文件
 ```
 copyright.tex                      申请表编译入口（原有模板）
 chapters/copyright_body.tex        申请表正文与预填数据
-design.tex                         设计说明书编译入口（封面/目录/附录开关）
+design.tex                         设计说明书编译入口（封面/目录/十二章正文）
 chapters/design_body.tex           设计说明书十二章正文
-chapters/figure_spec.tex           附录 A 插图清单 + 附录 B 全部 PlantUML 语法与截图要求
+chapters/figure_spec.tex           插图绘制参考（PlantUML 语法与取图步骤，不编入 PDF）
 source_code.tex                    源程序文档编译入口
-chapters/source_excerpt.txt        从真实源码拼接的 3000 行代码（脚本生成）
-chapters/source_body.tex           60 个 \sourcepage 分页指令（脚本生成）
+chapters/source_excerpt.txt        从真实源码拼接的 3000 多行完整代码（脚本生成）
+chapters/source_body.tex           \sourcepage 分页指令与总页数（脚本生成）
 tools/gen_source.py                源程序摘录生成脚本
-figures/                           图片目录（按插图清单命名放入）
+figures/                           图片目录（按命名规则放入）
 style/tongjicopyright.sty          申请表版式
 style/tongjidesign.sty             说明书版式、\figph 占位/自动替换命令
-style/tongjisource.sty             源程序版式（60 页口径）
+style/tongjisource.sty             源程序版式（每页 50 行、总页数动态）
 style/navmeta.tex                  设计说明书与源程序共用的软件名称/版本
 style/tongjithesis.cls 等           申请表依赖的最小文档类副本
 ```
@@ -60,48 +60,47 @@ style/tongjithesis.cls 等           申请表依赖的最小文档类副本
 系统总结构、各子系统、关键机制、接口设计、人机接口、测试计划、出错处理、系统维护。
 内容取自 `docs/01`~`docs/10`、`README.md` 与真实源码，未虚构功能。
 
-### 插图如何补齐（重要）
+### 插图状态
 
-正文每处插图都用 `\figph{键}{文件名}{图题}{占位提示}` 排版：
+正文已按 `figures/` 中实际出图的图片精简，**共 18 幅，图号 1–18 连续**：
 
-- **当前状态**：`figures/` 里没有图片，PDF 中对应位置是带虚线的占位框，框内写明该图的
-  文件名与内容提示，图号与交叉引用均已自动生成，不影响排版。
-- **补齐方式**：按 `chapters/figure_spec.tex` 附录 A 清单给出的**确切文件名**出图，
-  放进 `figures/` 后重新 `make design`（该目标会强制完整重编译），`\figph` 会自动用
-  `\includegraphics` 替换占位框，**不需要修改正文任何一行 LaTeX**。
-  单独编译时请用 `latexmk -g -xelatex design.tex`，否则增量编译不会检测到新增图片。
-- **图怎么画**：附录 B 给出全部 20 张结构图的可编译 PlantUML 源码
-  （组件图 1、部署图 1、ER 图 1、类图 1、活动图 13、状态图 1、时序图 2），
-  以及 28 张界面截图的取图步骤、画面要素和 28 段 `salt` 线框语法（可作临时占位）。
-  附录 B 默认不编入 PDF（`design.tex` 中 `\figspecinpdffalse`），需要校对语法时改为
-  `\figspecinpdftrue` 重新编译即可；语法本身始终保留在模板文件中。
+- 界面截图 10 张：`ui_01`、`ui_02`、`ui_03`、`ui_06`、`ui_07`、`ui_12`、`ui_14`、`ui_18`、`ui_19`、`ui_23`；
+- 结构图 8 张：`arch_01_system_overview` 与 `flow_01`–`flow_07`。
 
-图片命名规则：截图 `ui_NN_名称.png`，结构图 `arch_NN_*` / `flow_NN_*` / `state_NN_*` / `seq_NN_*`；
-全小写英文与下划线，扩展名 `.png`（矢量图可用 `.pdf`）。渲染结构图示例：
+未截图的界面截图与次要结构图（部署图、ER 图、类图、状态图、时序图，以及测试、维护、出错处理等流程）的图位已删除，正文引用同步清理；原附录已删除，PDF 中不再有附录。
+
+插图仍用 `\figph{键}{文件名}{图题}{占位提示}` 排版：文件存在时直接嵌入，缺失时画虚线占位框，图号由 LaTeX 自动连续编号。后续如需补图，把 PNG 按命名规则放进 `figures/`，在正文相应位置加一行 `\figph` 后执行 `make design`（该目标强制完整重编译）即可，图号自动重排。
+
+绘图参考保留在 `chapters/figure_spec.tex`（不编入 PDF）：8 张结构图的可编译 PlantUML 源码与 10 张截图的取图步骤。如确需把该参考编入 PDF，在 `design.tex` 的 `\end{document}` 前加 `\appendix` 与 `\input{chapters/figure_spec}`。
+
+图片命名规则：截图 `ui_NN_名称.png`，结构图 `arch_NN_*` / `flow_NN_*`；全小写英文与下划线，扩展名 `.png`（矢量图可用 `.pdf`）。渲染结构图示例：
 
 ```bash
 # 复制 figure_spec.tex 中对应 @startuml ... @enduml 保存为同名 .puml 后
 plantuml -tpng figures/flow_01_eval_task.puml     # 生成 flow_01_eval_task.png
 ```
 
-清单中优先级 A 为软著材料必需的 14 张，B 为建议，C 为可选增强；时间有限时先完成 A 类。
-
 ## 源程序
 
-按软著口径组织为 60 页：第 1–30 页为源程序前部，第 31–60 页为源程序后部，
-每页严格 50 行，行号 1–3000 连续，页眉为软件全称 + 版本号，页脚为当前源码文件与页码。
+按完整源文件顺序连续排版：每页 50 行，最后一页不足 50 行时自然收尾，
+不凑固定页数、不截断任何文件；行号从 1 连续编到实际总行数。
+页眉为软件全称 + 版本号，页脚为当前源码文件与「第 X 页 / 共 N 页」，
+N 由生成脚本按实际行数写入。
 
-`tools/gen_source.py` 从项目真实源码按固定清单顺序抽取 3000 行
-（后端/入口约 2040 行、前端约 960 行），覆盖启动入口、应用工厂、配置、鉴权、数据库模型、
-调度器、适配器、指标分析，以及前端入口、路由、API 封装、状态管理和主要视图组件。
+`tools/gen_source.py` 按固定清单从项目真实源码收录**完整文件**
+（当前 3000 多行、60 多页，后端/入口约 2300 行、前端约 950 行），
+覆盖启动入口、应用工厂、配置、鉴权、数据库会话与 ORM 模型、适配器协议与
+StreamVLN / Mock 实现、任务调度器，以及前端入口、路由、API 封装、状态管理、
+工具函数与主要可视化组件。最后一个文件完整写完即结束，不存在半截代码。
+
 摘录文件是纯代码拼接，不含额外说明行；代码冻结后运行 `make excerpt` 即可同步。
-若要调整选段或前后端配比，修改脚本顶部的 `FRONT_SPEC` / `BACK_SPEC` 即可，
-`TARGET_PART` 与 `LINES_PER_PAGE` 决定页数口径（当前 1500 + 1500 行）。
+需要增减行数时，在脚本的 `SPEC` 末尾增删完整文件即可，不要对单个文件设行数上限；
+`LINES_PER_PAGE`（当前 50）决定每页行数，总页数自动计算。
 
 ## 提交前检查
 
-1. `make` 三份 PDF 均可编译，`design.pdf` 中不再出现「待补插图」占位框。
-2. 附录 A 的图号与正文图题一一对应；若不需要绘制语法，保持 `\figspecinpdffalse`。
+1. `make` 三份 PDF 均可编译，`design.pdf` 的 18 幅插图全部嵌入、图号 1–18 连续、无占位框。
+2. 设计说明书无附录；绘图参考独立保存在 `chapters/figure_spec.tex`，不随 PDF 提交。
 3. 申请表、设计说明书封面、源程序页眉三处的软件全称与版本号一致。
-4. 源程序量为 3000 行（60 页 × 50 行），与申请表「源程序量 25600 行」不矛盾：
-   前者是提交的页面代码，后者是项目源码总量。
+4. 源程序量为 3000 多行（60 多页 × 50 行，最后一页自然收尾），与申请表
+   「源程序量 25600 行」不矛盾：前者是提交的页面代码，后者是项目源码总量。
