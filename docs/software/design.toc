@@ -7,45 +7,44 @@
 \contentsline {section}{\numberline {2.5}指标分析与诊断}{5}{section.2.5}%
 \contentsline {section}{\numberline {2.6}交互式仿真}{5}{section.2.6}%
 \contentsline {section}{\numberline {2.7}资产同步}{6}{section.2.7}%
-\contentsline {section}{\numberline {2.8}系统管理}{6}{section.2.8}%
-\contentsline {chapter}{\numberline {三、\hspace {.3em}}软件特性介绍}{6}{chapter.3}%
+\contentsline {section}{\numberline {2.8}系统管理}{7}{section.2.8}%
+\contentsline {chapter}{\numberline {三、\hspace {.3em}}软件特性介绍}{7}{chapter.3}%
 \contentsline {chapter}{\numberline {四、\hspace {.3em}}软件的运行环境介绍}{8}{chapter.4}%
-\contentsline {chapter}{\numberline {五、\hspace {.3em}}系统总结构}{9}{chapter.5}%
-\contentsline {section}{\numberline {5.1}总体架构}{9}{section.5.1}%
-\contentsline {section}{\numberline {5.2}评测任务执行总流程}{10}{section.5.2}%
+\contentsline {chapter}{\numberline {五、\hspace {.3em}}系统总结构}{8}{chapter.5}%
+\contentsline {section}{\numberline {5.1}总体架构}{8}{section.5.1}%
+\contentsline {section}{\numberline {5.2}评测任务执行总流程}{9}{section.5.2}%
 \contentsline {section}{\numberline {5.3}技术栈与设计约束}{10}{section.5.3}%
 \contentsline {chapter}{\numberline {六、\hspace {.3em}}系统各子系统介绍}{10}{chapter.6}%
 \contentsline {section}{\numberline {6.1}数据与配置管理子系统}{10}{section.6.1}%
 \contentsline {section}{\numberline {6.2}评测任务调度子系统}{11}{section.6.2}%
-\contentsline {section}{\numberline {6.3}推理与回放子系统}{13}{section.6.3}%
-\contentsline {section}{\numberline {6.4}指标分析与诊断子系统}{14}{section.6.4}%
+\contentsline {section}{\numberline {6.3}推理与回放子系统}{12}{section.6.3}%
+\contentsline {section}{\numberline {6.4}指标分析与诊断子系统}{13}{section.6.4}%
 \contentsline {section}{\numberline {6.5}交互式仿真子系统}{14}{section.6.5}%
-\contentsline {section}{\numberline {6.6}资产同步子系统}{14}{section.6.6}%
-\contentsline {section}{\numberline {6.7}系统管理与权限子系统}{14}{section.6.7}%
+\contentsline {section}{\numberline {6.6}资产同步子系统}{15}{section.6.6}%
 \contentsline {chapter}{\numberline {七、\hspace {.3em}}关键机制设计}{15}{chapter.7}%
 \contentsline {section}{\numberline {7.1}适配器协议与逐帧元数据契约}{15}{section.7.1}%
-\contentsline {section}{\numberline {7.2}配置快照与因果性双层校验}{17}{section.7.2}%
-\contentsline {section}{\numberline {7.3}任务队列、资源互斥与实时监控}{17}{section.7.3}%
-\contentsline {section}{\numberline {7.4}仿真三线程解耦与单帧单编码}{17}{section.7.4}%
-\contentsline {section}{\numberline {7.5}幂等导入与显著性检验}{17}{section.7.5}%
+\contentsline {section}{\numberline {7.2}配置快照与因果性双层校验}{16}{section.7.2}%
+\contentsline {section}{\numberline {7.3}任务队列、资源互斥与实时监控}{16}{section.7.3}%
+\contentsline {section}{\numberline {7.4}仿真三线程解耦与单帧单编码}{16}{section.7.4}%
+\contentsline {section}{\numberline {7.5}幂等导入与显著性检验}{16}{section.7.5}%
 \contentsline {section}{\numberline {7.6}鉴权双通道与可选依赖降级}{17}{section.7.6}%
-\contentsline {chapter}{\numberline {八、\hspace {.3em}}接口设计}{18}{chapter.8}%
-\contentsline {section}{\numberline {8.1}通用约定与错误码}{18}{section.8.1}%
-\contentsline {section}{\numberline {8.2}接口分组}{18}{section.8.2}%
-\contentsline {section}{\numberline {8.3}关键报文示例}{18}{section.8.3}%
-\contentsline {section}{\numberline {8.4}权限与兼容性}{19}{section.8.4}%
-\contentsline {chapter}{\numberline {九、\hspace {.3em}}人机接口设计}{19}{chapter.9}%
-\contentsline {section}{\numberline {9.1}布局与导航}{19}{section.9.1}%
-\contentsline {section}{\numberline {9.2}操作旅程与状态反馈}{20}{section.9.2}%
-\contentsline {chapter}{\numberline {十、\hspace {.3em}}测试计划}{20}{chapter.10}%
-\contentsline {section}{\numberline {10.1}测试范围与环境}{20}{section.10.1}%
-\contentsline {section}{\numberline {10.2}功能验收用例}{20}{section.10.2}%
+\contentsline {chapter}{\numberline {八、\hspace {.3em}}接口设计}{17}{chapter.8}%
+\contentsline {section}{\numberline {8.1}通用约定与错误码}{17}{section.8.1}%
+\contentsline {section}{\numberline {8.2}接口分组}{17}{section.8.2}%
+\contentsline {section}{\numberline {8.3}关键报文示例}{17}{section.8.3}%
+\contentsline {section}{\numberline {8.4}权限与兼容性}{18}{section.8.4}%
+\contentsline {chapter}{\numberline {九、\hspace {.3em}}人机接口设计}{18}{chapter.9}%
+\contentsline {section}{\numberline {9.1}布局与导航}{18}{section.9.1}%
+\contentsline {section}{\numberline {9.2}操作旅程与状态反馈}{18}{section.9.2}%
+\contentsline {chapter}{\numberline {十、\hspace {.3em}}测试计划}{19}{chapter.10}%
+\contentsline {section}{\numberline {10.1}测试范围与环境}{19}{section.10.1}%
+\contentsline {section}{\numberline {10.2}功能验收用例}{19}{section.10.2}%
 \contentsline {section}{\numberline {10.3}技术验收与当前状态}{20}{section.10.3}%
-\contentsline {chapter}{\numberline {十一、\hspace {.3em}}系统出错处理设计}{21}{chapter.11}%
-\contentsline {section}{\numberline {11.1}错误分类}{21}{section.11.1}%
-\contentsline {section}{\numberline {11.2}分层容错与降级策略}{21}{section.11.2}%
-\contentsline {section}{\numberline {11.3}任务失败、日志与资源释放}{21}{section.11.3}%
-\contentsline {chapter}{\numberline {十二、\hspace {.3em}}系统维护设计}{22}{chapter.12}%
-\contentsline {section}{\numberline {12.1}配置与数据库}{22}{section.12.1}%
-\contentsline {section}{\numberline {12.2}运行目录、监控与升级}{22}{section.12.2}%
-\contentsline {section}{\numberline {12.3}已知限制与交付材料}{22}{section.12.3}%
+\contentsline {chapter}{\numberline {十一、\hspace {.3em}}系统出错处理设计}{20}{chapter.11}%
+\contentsline {section}{\numberline {11.1}错误分类}{20}{section.11.1}%
+\contentsline {section}{\numberline {11.2}分层容错与降级策略}{20}{section.11.2}%
+\contentsline {section}{\numberline {11.3}任务失败、日志与资源释放}{20}{section.11.3}%
+\contentsline {chapter}{\numberline {十二、\hspace {.3em}}系统维护设计}{21}{chapter.12}%
+\contentsline {section}{\numberline {12.1}配置与数据库}{21}{section.12.1}%
+\contentsline {section}{\numberline {12.2}运行目录、监控与升级}{21}{section.12.2}%
+\contentsline {section}{\numberline {12.3}已知限制与交付材料}{21}{section.12.3}%

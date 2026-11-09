@@ -20,6 +20,7 @@
 \RequirePackage{indentfirst}
 \RequirePackage{xcolor}
 \RequirePackage{graphicx}
+\RequirePackage{float}
 \RequirePackage{tikz}
 \RequirePackage{fancyhdr}
 \RequirePackage{caption}
@@ -117,7 +118,7 @@
   \end{tikzpicture}%
 }
 \newcommand{\figph}[5][5.6cm]{%
-  \begin{figure}[htbp]\centering
+  \begin{figure}[H]\centering
     \IfFileExists{figures/#3}{%
       \includegraphics[width=0.92\textwidth,height=0.70\textheight,
                        keepaspectratio]{figures/#3}%
