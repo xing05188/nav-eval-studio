@@ -1,6 +1,6 @@
-# 具身导航多模态流式评测与诊断软件 V1.0
+# 码极客具身导航多模态流式评测与诊断平台 V1.0
 
-面向连续环境视觉语言导航（VLN-CE）模型的**评测、诊断与回放**一体化平台。
+简称 **码极客 NavEval Studio**（英文标识 `nav-eval-studio`）。面向连续环境视觉语言导航（VLN-CE）模型的**评测、诊断、回放与实时仿真**一体化平台。
 
 本仓库为软件著作权登记主体，配套毕业设计课题《基于多模态流式感知与时空记忆的视觉语言导航研究》。
 
@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | Python | 3.9+（建议 3.10+，已验证 3.9.23 可运行） | `/home/zjr/miniconda3/envs/streamvln-kb/bin/python` |
 | Node.js | 18+（用于构建/开发前端） | `/home/zjr/StreamingVLA/tools/node-v20.18.0-linux-x64/bin` |
-| GPU | 仅真实 StreamVLN 评测需要；离线 Mock 演示无需 GPU | — |
+| GPU | 真实 StreamVLN 评测、交互式仿真与模型驾驶需要；离线 Mock 演示无需 GPU | 本机 8×L40S |
 
 > 本机系统默认 `python3` 是 3.4.3，**不能**用于本项目；请使用上表中的解释器。
 > Node 不在默认 `PATH`，构建前端前需先 `export PATH=/home/zjr/StreamingVLA/tools/node-v20.18.0-linux-x64/bin:$PATH`。
@@ -68,7 +68,7 @@ pkill -f "run.py --no-browser"           # 停止
 | `--host` / `--port` | 覆盖监听地址 / 端口，默认取配置文件 |
 | `--config <path>` | 指定 YAML 配置文件 |
 | `--no-browser` | 启动后不自动打开浏览器（服务器建议加上） |
-| `--reload` | 后端代码热重载，开发时使用 |
+| `--reload` | 后端代码热重载，开发时使用（**仿真调试不要开**，见下文） |
 
 | 环境变量 | 说明 |
 | --- | --- |
@@ -114,6 +114,8 @@ ss -ltnp | grep 8080                    # 端口占用
 | 页面空白或仍是旧界面 | 执行 `npm run build` 后强制刷新（Ctrl+Shift+R）清缓存 |
 | 接口 404 / 新功能不生效 | 后端代码有更新，重启服务 |
 | 数据库被锁 | 检查是否有多个服务进程；SQLite 为单写 WAL 模式，勿在运行时直接删 `eval.db` |
+| 仿真页报「仿真组件不可用」 | 当前 Python 没装 `habitat_sim`，换 `streamvln-kb` 环境启动 |
+| 改后端代码后仿真卡住 | 关掉 `--reload`：重建进程会强杀引擎线程，可能残留 headless GL context |
 
 ## 定位
 
@@ -121,22 +123,23 @@ ss -ltnp | grep 8080                    # 端口占用
 
 1. **数据与配置**：登记数据集、生成 smoke/subset 切分、多源观测对齐检查、严格因果切片导出。
 2. **评测调度**：配置模板化、任务队列、实时日志、断点续跑、资源采样。
-3. **推理与回放**：模型适配层、逐步单帧推理、轨迹回放、记忆窗口与空间裁剪可视化。
+3. **推理与回放**：模型适配层、真实适配器逐帧元数据采集、轨迹回放、记忆窗口与空间裁剪可视化。
 4. **分析与诊断**：多任务指标对比、配对 bootstrap 显著性、失败归因、报告导出。
-5. **资产同步**：备份库中的数据集、场景、模型、历史结果与资料文件自动导入平台并持续增量同步。
+5. **实时仿真**：从 episode 启动 Habitat 单局仿真，手动 / 模型 / oracle 三种驾驶方式同屏对照。
+6. **资产同步**：备份库中的数据集、场景、模型、历史结果与资料文件自动导入平台并持续增量同步。
 
 ## 功能一览
 
 | 模块 | 主要能力 |
 | --- | --- |
-| 数据资产 | 数据集登记/扫描、Episode 检索、观测时间轴、质量校验、三类切分、因果切片导出 |
+| 数据资产 | 数据集登记/扫描、Episode 检索、观测时间轴、质量校验、三类切分、因果切片导出、帧浏览 |
 | 模型档案 | 登记/编辑、可用性探测、配置模板；「自动配置」从 `checkpoints` 补齐代码/权重路径与 `torchrun` 启动器 |
 | 评测执行 | 任务创建与配置快照、队列/并发/GPU 互斥、SSE 实时监控、暂停/恢复/取消/重跑、Mock 与 StreamVLN 双适配器 |
 | 历史结果 | 把 `results/<实验>/streamvln/result.json` 还原为可回放任务；结果仍在写入时保持「运行中」并增量刷新进度 |
 | 备份库导入 | 五类数据自动同步、扫描预览、强制覆盖、运行时开关、资料索引检索 |
-| 分析诊断 | 指标对比、消融矩阵、配对 bootstrap、失败归因、报告中心 |
-| 轨迹回放 | 第一视角帧、观测时间轴、记忆窗口与俯视轨迹四区联动 |
-| 交互式仿真 | 从已登记 episode 启动单局实时仿真：第一视角 MJPEG、俯视轨迹与目标圈、按钮/键盘驾驶、步数与距离读数 |
+| 分析诊断 | 指标对比、消融矩阵、配对 bootstrap、失败归因、长时曲线、报告中心 |
+| 轨迹回放 | 第一视角帧、动作时间轴、记忆窗口与俯视轨迹四区联动；真实 StreamVLN 逐步落盘后可直接回放 |
+| 交互式仿真 | 单局实时仿真：第一视角 MJPEG + 第三视角画中画、俯视轨迹三线对照、手动/模型/oracle 驾驶、机器狗模型、会话录制导出 mp4 |
 | 系统 | 用户管理、操作审计、系统设置与 GPU 状态、统一应用图标与设计系统 |
 
 ## 界面与交互约定
@@ -156,11 +159,13 @@ ss -ltnp | grep 8080                    # 端口占用
 | 因果性可验证 | 输入白名单 + 运行时断言，禁止访问 t 之后观测 |
 | 单机可交付 | SQLite + 单进程 `python run.py`，前端 dist 由 FastAPI 托管 |
 | 模型无关 | 通过 Adapter 协议对接 StreamVLN 等外部推理后端，不内嵌其源码 |
+| 仿真可选 | `habitat_sim` 缺失时只有仿真页报错，其余功能不受影响 |
 
 ## 技术栈
 
 - 后端：Python 3.9+ / FastAPI / SQLAlchemy 2.0 / SQLite(WAL) / Uvicorn / Pydantic v2 / PyYAML
-- 仿真（可选）：habitat_sim 0.2.4 / numpy / opencv-python，仅在「交互式仿真」页按需懒加载
+- 仿真（可选）：habitat_sim 0.2.4 / numpy / opencv-python（MJPEG 与 mp4 编码），仅在「交互式仿真」页按需懒加载
+- 模型驾驶（可选）：transformers + 8bit 量化 StreamVLN，与仿真同进程分线程运行
 - 前端：Vue 3 / Vite 5 / Pinia / Vue Router 4 / Element Plus / ECharts / Canvas
 - 调度：自研轻量队列（asyncio + 子进程），不依赖 Redis、Celery
 - 打包：`python run.py` 单入口，前端 dist 由 FastAPI 托管
@@ -168,11 +173,11 @@ ss -ltnp | grep 8080                    # 端口占用
 ## 目录结构
 
 ```
-backend/app/     FastAPI 应用：api / services / models / schemas / adapters / db / core / utils
+backend/app/     FastAPI 应用：api / services（含 sim 仿真子系统）/ models / schemas / adapters / db / core / utils
 config/          default.yaml、models.yaml、metrics.yaml
 frontend/        Vue 3 源码 src/、静态图标 public/、构建产物 dist/
-docs/            设计文档、软著材料与开发待办
-storage/         运行时数据：eval.db、runs/、reports/、logs/、cache/、exports/
+docs/            设计文档、软著材料、逐帧回放与仿真专题文档
+storage/         运行时数据：eval.db、runs/、sim/、reports/、logs/、cache/、exports/
 run.py           单入口启动脚本
 requirements.txt 后端依赖清单
 ```
@@ -195,10 +200,8 @@ requirements.txt 后端依赖清单
 
 导入以 `source_key + signature` 幂等，重复执行只处理新增或变化的对象，不会覆盖手工登记的数据集。
 `dry_run` 预览只扫描不写库；训练/大规模轨迹数据（默认 `scan_exclude: [train, envdrop, scalevln]`）
-与超过 `scan_limit_mb` 的目录仅登记，可在数据集页手动扫描。
-评测结果文件在 `running_grace_s`（默认 600 秒）内仍有写入时，任务保持「运行中」并按结果条数刷新进度，
-停止写入后自动转为「已完成」；这类外部评测不受服务重启的中断标记影响。相关接口：
-`GET/POST /api/import/backup`、`PUT /api/import/backup/auto`、`GET /api/import/backup/assets`。
+与 `scan_limit_mb` 超过阈值的目录仅登记，可在数据集页手动扫描。
+相关接口：`GET/POST /api/import/backup`、`PUT /api/import/backup/auto`、`GET /api/import/backup/assets`。
 运行时开关保存在 `setting` 表（`backup_auto_enabled` / `backup_auto_interval_s` /
 `backup_import_root` / `backup_auto_sections`），也可用环境变量 `NAVEVAL_IMPORT_ROOT` 覆盖绑定目录。
 
@@ -216,41 +219,54 @@ requirements.txt 后端依赖清单
 
 其余功能不依赖 habitat_sim：模块缺失时只有仿真页报「仿真组件不可用」，平台照常启动与演示。
 
-- **配置**：`config/default.yaml` 的 `sim` 段（场景根目录、GPU、渲染/推流帧率、JPEG 质量、并发观看上限、空闲超时、显存预警阈值），缺省也有默认值。
-- **权限**：启动 / 操控 / 停止限 `admin` 与 `operator`；`viewer` 只能看画面与读数。
+- **配置**：`config/default.yaml` 的 `sim` 段（场景根目录、GPU、渲染/推流帧率、JPEG 质量、并发观看上限、空闲超时、显存预警阈值、画中画、录制、机器狗），缺省也有默认值。
+- **三种驾驶方式**：手动（按钮/键盘）、模型驾驶（`/api/sim/policy`，StreamVLN 8bit 同卡推理）、oracle 驾驶（沿 navmesh 最短路径自动走，用于与人类轨迹、模型轨迹三条线对照）。
+- **诊断叠加**：俯视图同时画人类示范轨迹（紫红虚线）、oracle 最短路径（淡黄虚线）与实际轨迹（青色实线）；读数含测地距离、NE、SPL 估计。
+- **画中画与机器狗**：第三视角 320×240 相机贴在右上角，内含 Go2 模型；开关只切显隐，不影响第一视角与模型输入。
+- **会话录制**：`record_fps` 采样落 JPEG，停止后异步编码 mp4（`/api/sim/recordings/export`），同一帧只编码一次。
+- **权限**：启动 / 操控 / 停止 / 模型驾驶限 `admin` 与 `operator`；`viewer` 只能看画面与读数。
 - **单会话**：同一时刻只允许一个仿真会话，启动新会话会先停掉旧的；无状态请求超过 `idle_timeout_s`（默认 900 秒）自动停止。
 - **键盘**：↑/W 前进、←/A 左转、→/D 右转、空格停止，按住连发；每次前进 0.25 m、转向 15°。
-- **帧率与负载**：无人观看时 15 fps，有页面在看时 20 fps；每帧只编码一次 JPEG，多观众共享同一份字节。
-- **接口**：`POST /api/sim/sessions`、`GET /api/sim/state`、`POST /api/sim/actions`、`GET /api/sim/stream`、`DELETE /api/sim/sessions/{id}`。
+- **接口**：`POST /api/sim/sessions`、`GET /api/sim/state`、`POST /api/sim/actions`、`GET /api/sim/stream`、`DELETE /api/sim/sessions/{id}`、`POST /api/sim/oracle`、`POST /api/sim/pip`、`POST /api/sim/robot`、`POST|GET /api/sim/policy`、`POST /api/sim/policy/pause`、`POST /api/sim/recordings/export`。
 - **调仿真不要用 `--reload`**：reload 会重建进程强行杀掉引擎线程，可能残留 headless GL context。
-- 设计说明、分步计划与验收记录见 [docs/07-交互式仿真页面设计.md](docs/07-交互式仿真页面设计.md)。
+- 设计说明见 [docs/07-交互式仿真页面设计.md](docs/07-交互式仿真页面设计.md)、[docs/08-交互式仿真接入模型预测.md](docs/08-交互式仿真接入模型预测.md)、[docs/09-仿真诊断能力扩展.md](docs/09-仿真诊断能力扩展.md)。
+
+## 真实适配器逐帧回放
+
+平台调度真实 StreamVLN 时，会向上游评测脚本追加 `--dump_frames <run_dir>/raw/frames`，
+上游每步写一行位姿/动作/时延/记忆状态，适配器解析后交给调度器落 `storage/runs/<task>/frames/<episode>.jsonl`，
+回放接口据此还原俯视轨迹、第一视角与记忆曲线。上游脚本没有该开关时自动降级为「只有汇总指标」，
+不会因未知参数失败。字段契约、跨仓库改动与 8 卡全量实测见 [docs/10-真实适配器逐帧回放.md](docs/10-真实适配器逐帧回放.md)。
 
 ## 文档索引
 
 | 文档 | 内容 |
 | --- | --- |
-| [docs/01-需求与功能清单.md](docs/01-需求与功能清单.md) | 用户场景、功能清单（F 编号）、非功能需求、边界 |
-| [docs/02-数据库设计.md](docs/02-数据库设计.md) | ER 关系、完整 DDL、字段说明、状态机 |
-| [docs/03-接口设计.md](docs/03-接口设计.md) | REST 接口清单、SSE 事件、回放数据结构 |
-| [docs/04-目录结构与代码规划.md](docs/04-目录结构与代码规划.md) | 目录树、分层职责、行数预算、关键实现要点 |
+| [docs/01-需求与功能清单.md](docs/01-需求与功能清单.md) | 用户场景、功能清单（F 编号）、非功能需求、边界与完成状态 |
+| [docs/02-数据库设计.md](docs/02-数据库设计.md) | ER 关系、完整 DDL（含 `backup_asset`）、字段说明、状态机、迁移 |
+| [docs/03-接口设计.md](docs/03-接口设计.md) | REST 接口清单（含仿真与备份库导入）、两套鉴权、SSE 事件、回放与逐帧数据结构 |
+| [docs/04-目录结构与代码规划.md](docs/04-目录结构与代码规划.md) | 实际目录树、分层职责、代码量统计、关键实现要点、配置示例 |
 | [docs/05-软著说明书草稿.md](docs/05-软著说明书草稿.md) | 设计说明书七章草稿、申请表功能简介、截图表 |
-| [docs/06-开发计划.md](docs/06-开发计划.md) | 里程碑、验收判据、风险 |
-| [docs/07-交互式仿真页面设计.md](docs/07-交互式仿真页面设计.md) | 交互式仿真的范围、架构与线程模型、接口契约、旧脚本迁移映射、S1–S5 分步与验收记录；§13 记录诊断能力扩展（测地距离/NE/SPL、人类示范轨迹、oracle 最短路径与「Oracle 走一遍」、去掉 head_depth） |
-| [docs/08-交互式仿真接入模型预测.md](docs/08-交互式仿真接入模型预测.md) | 模型驾驶：规划 + 实施记录（P1–P5 全通过，StreamVLN 8bit 与仿真同跑 GPU2，§13 有实测数据与踩坑） |
-| [docs/09-仿真诊断能力扩展.md](docs/09-仿真诊断能力扩展.md) | 模拟器/数据集能力盘点与落地状态：已做（参考轨迹、测地/NE/SPL、oracle）、未做、不建议；含两个 API 坑 |
+| [docs/06-开发计划.md](docs/06-开发计划.md) | 里程碑、验收判据、风险、进度记录 |
+| [docs/07-交互式仿真页面设计.md](docs/07-交互式仿真页面设计.md) | 仿真范围、线程模型、接口契约、旧脚本迁移映射、S1–S5 与 §13 诊断能力扩展 |
+| [docs/08-交互式仿真接入模型预测.md](docs/08-交互式仿真接入模型预测.md) | 模型驾驶：规划 + 实施记录（P1–P5，StreamVLN 8bit 与仿真同跑 GPU2） |
+| [docs/09-仿真诊断能力扩展.md](docs/09-仿真诊断能力扩展.md) | 模拟器/数据集能力盘点与落地状态：已做、未做、不建议；含两个 API 坑 |
+| [docs/10-真实适配器逐帧回放.md](docs/10-真实适配器逐帧回放.md) | 逐帧元数据从 StreamVLN 到回放页的完整链路、字段契约、降级策略与实测 |
 | [docs/todo.md](docs/todo.md) | 收尾事项与测试待办 |
-| [docs/software-copyright/](docs/software-copyright/) | 计算机软件著作权登记申请表 LaTeX 模板与编译说明 |
+| [docs/software/](docs/software/) | 计算机软件著作权登记申请表 LaTeX 模板（已按本软件预填）与编译说明 |
 
 ## 当前状态与已知限制
 
 已完成并在本机端到端验证：建库/迁移与登录鉴权、数据集与切分、任务调度与双适配器、
-分析与报告、轨迹回放、交互式仿真（单局实时驾驶台）、备份库自动导入（数据集/场景/模型/结果/资料）、
-历史结果的运行中增量同步、模型自动配置、任务时间列与默认排序、全站视觉体系与应用图标。
+分析与报告、轨迹回放、交互式仿真（手动/模型/oracle 三种驾驶、画中画、机器狗、录制导出）、
+备份库自动导入（数据集/场景/模型/结果/资料）、历史结果的运行中增量同步、模型自动配置、
+真实适配器逐帧元数据采集（8 卡全量 `val_unseen` 1839 条实测产出逐帧文件）。
 
 已知限制：
 
-- 交互式仿真需要装有 `habitat_sim` 的 Python 环境与本机场景文件；缺失时只有该页给出明确报错，其余功能不受影响。首版不含模型自动跑指令、oracle 路径与深度预警（见 07 文档第 12 节）。
+- 交互式仿真需要装有 `habitat_sim` 的 Python 环境与本机场景文件；缺失时只有该页给出明确报错，其余功能不受影响。
 - StreamVLN 适配器按官方脚本整段执行 `eval_split`，数据库切分只用于结果对齐与统计，无法把子集参数透传给上游（上游没有该开关）。
+- 逐帧回放的完整度取决于上游是否支持 `--dump_frames`；老版本脚本只回放汇总指标与参考路径。
 - 断点续跑以 episode 为粒度：服务重启后**由本平台调度**的任务标记失败，可通过「重跑失败项」继续；备份库导入的外部评测不受影响。
 - 训练/大规模轨迹数据默认只登记路径不解析 episode，需在数据集页手动扫描。
 - 仓库暂无自动化测试（见 [docs/todo.md](docs/todo.md)）。

@@ -255,12 +255,12 @@ def build_markdown(
     include = [item for item in (payload.include or []) if item in SUPPORTED_INCLUDE]
 
     lines = [
-        "# 具身导航评测分析报告",
+        "# 码极客具身导航多模态流式评测与诊断平台 · 评测分析报告",
         "",
         f"- 生成时间：{_now()}",
         f"- 任务数量：{len(compare['rows'])}",
         f"- 基线任务：{_task_label(next(row for row in compare['rows'] if row['task_id'] == compare['baseline']))}",
-        "- 数据来源：NavEval Studio 评测数据库",
+        "- 数据来源：码极客 NavEval Studio 评测数据库",
         "",
     ]
 
@@ -277,7 +277,7 @@ def build_markdown(
     if "failures" in include:
         lines += _failure_lines(db, compare, int(payload.top_failures))
 
-    lines += ["---", "", "报告由 NavEval Studio 自动生成，指标口径见系统文档。", ""]
+    lines += ["---", "", "报告由码极客 NavEval Studio 自动生成，指标口径见系统文档。", ""]
     return "\n".join(lines)
 
 

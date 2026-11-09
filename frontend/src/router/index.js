@@ -119,8 +119,8 @@ router.beforeEach((to) => {
     return { path: '/overview' }
   }
   document.title = to.meta.title
-    ? `${to.meta.title} · NavEval Studio`
-    : '具身导航多模态流式评测与诊断软件 V1.0'
+    ? `${to.meta.title} · 码极客 NavEval Studio`
+    : '码极客具身导航多模态流式评测与诊断平台 V1.0'
   return true
 })
 

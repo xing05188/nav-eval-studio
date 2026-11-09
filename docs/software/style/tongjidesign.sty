@@ -1,0 +1,143 @@
+% ============================================================
+%  tongjidesign -- 软件著作权登记《设计说明书》版式
+%  与 copyright.tex 的申请表版式相互独立：
+%  申请表沿用 tongjithesis.cls，说明书使用轻量 ctexrep 文档类。
+% ============================================================
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{tongjidesign}[2026/11/09 Layout for software design specification]
+
+\input{style/navmeta}
+
+% ------------------------------------------------------------
+% 页面与字体
+% ------------------------------------------------------------
+\RequirePackage{geometry}
+\geometry{a4paper,top=2.4cm,bottom=2.3cm,left=2.7cm,right=2.5cm,
+          headheight=15pt,headsep=0.5cm,footskip=0.9cm}
+\RequirePackage{setspace}
+\setstretch{1.35}
+\setlength{\parindent}{2em}
+\RequirePackage{indentfirst}
+\RequirePackage{xcolor}
+\RequirePackage{graphicx}
+\RequirePackage{tikz}
+\RequirePackage{fancyhdr}
+\RequirePackage{caption}
+\RequirePackage{booktabs}
+\RequirePackage{array}
+\RequirePackage{tabularx}
+\RequirePackage{longtable}
+\RequirePackage{multirow}
+\RequirePackage{enumitem}
+\RequirePackage{listings}
+\RequirePackage{amsmath}
+\RequirePackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=black!70!blue,citecolor=black!70!blue,
+            urlcolor=black!70!blue,pdfstartview=FitH,bookmarksnumbered=true}
+
+% 章节编号：一、二、……；图/表全局连续编号（便于与插图清单对照）
+\ctexset{
+  chapter    = {name={,、},number=\chinese{chapter},
+                format=\centering\LARGE\bfseries,aftername={\hspace{0pt}},
+                beforeskip=12pt,afterskip=18pt},
+  section    = {format=\Large\bfseries,beforeskip=10pt,afterskip=6pt},
+  subsection = {format=\large\bfseries,beforeskip=8pt,afterskip=4pt},
+}
+\counterwithout{figure}{chapter}
+\counterwithout{table}{chapter}
+\renewcommand{\figurename}{图}
+\renewcommand{\tablename}{表}
+\captionsetup{font={small},labelfont=bf,labelsep=quad,hypcap=false}
+\captionsetup[figure]{aboveskip=6pt,belowskip=6pt}
+\setlength{\floatsep}{10pt}
+\setlength{\textfloatsep}{12pt}
+\setlength{\intextsep}{10pt}
+
+% ------------------------------------------------------------
+% 页眉页脚
+% ------------------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\softwareheader}
+\fancyhead[R]{\small 设计说明书}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancypagestyle{plain}{%
+  \fancyhf{}\fancyhead[L]{\small\softwareheader}%
+  \fancyhead[R]{\small 设计说明书}\fancyfoot[C]{\small\thepage}%
+  \renewcommand{\headrulewidth}{0.4pt}}
+
+% ------------------------------------------------------------
+% 常用排版小工具
+% ------------------------------------------------------------
+% \code{...}：等宽显示标识符/路径，允许直接写下划线等特殊字符
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\term}[1]{\textbf{#1}}
+\newcommand{\software}{\softwarefullname\ \softwareversion}
+
+% 接口示例等代码块
+\lstdefinestyle{navcode}{%
+  basicstyle=\fontsize{9bp}{12bp}\ttfamily,
+  columns=fullflexible,keepspaces=true,extendedchars=false,
+  breaklines=true,breakindent=0pt,showstringspaces=false,
+  frame=single,framerule=0.4pt,rulecolor=\color{black!30},
+  backgroundcolor=\color{black!2},
+  xleftmargin=4pt,xrightmargin=4pt,aboveskip=4pt,belowskip=4pt,
+  numbers=none,
+}
+\lstdefinestyle{navplain}{%
+  basicstyle=\fontsize{8.5bp}{11bp}\ttfamily,
+  columns=fullflexible,keepspaces=true,extendedchars=false,
+  breaklines=true,breakindent=0pt,showstringspaces=false,
+  numbers=none,
+}
+\lstset{style=navcode}
+
+% ------------------------------------------------------------
+% 插图占位与自动替换
+% ------------------------------------------------------------
+% 用法：\figph[框高]{标签键}{文件名}{图题}{占位框内提示}
+%   * figures/<文件名> 不存在时画虚线框占位，保留版面位置；
+%   * 把 PNG/PDF 按同名放入 figures/ 后重新编译，自动切换为真实图片，
+%     不需要修改正文任何一行 LaTeX。
+% 可选扩展名：优先 .png，也可以是 .pdf/.jpg（写全名即可）。
+\newlength{\figphheight}
+\newcommand{\missingfigbox}[3]{% #1 文件名 #2 提示 #3 框高
+  \begin{tikzpicture}
+    \node[draw=black!45,dashed,line width=0.8pt,inner sep=8pt,
+          text width=0.84\textwidth,minimum height=#3,align=center,
+          fill=black!1.5,font=\small]{
+      {\bfseries\color{black!60}【待补插图】}\par\vspace{0.5em}
+      {\ttfamily\footnotesize \detokenize{figures/#1}}\par\vspace{0.6em}
+      {\normalfont #2}\par\vspace{0.6em}
+      {\footnotesize\color{black!45}%
+       图片按上述文件名放入 \texttt{figures/} 后重新编译即自动替换本框}%
+    };
+  \end{tikzpicture}%
+}
+\newcommand{\figph}[5][5.6cm]{%
+  \begin{figure}[htbp]\centering
+    \IfFileExists{figures/#3}{%
+      \includegraphics[width=0.92\textwidth,height=0.70\textheight,
+                       keepaspectratio]{figures/#3}%
+    }{%
+      \missingfigbox{#3}{#5}{#1}%
+    }%
+    \caption{#4}\label{fig:#2}%
+  \end{figure}%
+}
+
+% 简易三线表：\begin{navtable}{列格式}{表题}{标签}
+\newenvironment{navtable}[3]{%
+  \begin{table}[htbp]\centering
+  \caption{#2}\label{#3}\small
+  \begin{tabular}{#1}
+  \toprule
+}{%
+  \bottomrule
+  \end{tabular}
+  \end{table}%
+}
+
+\endinput

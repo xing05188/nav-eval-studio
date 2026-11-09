@@ -1,0 +1,79 @@
+% ============================================================
+%  软件著作权登记《设计说明书》编译入口
+%  编译：make design  或  latexmk -xelatex design.tex
+%
+%  文件组织：
+%    design.tex                    编译入口、封面、目录、附录开关
+%    chapters/design_body.tex      十二章正文
+%    chapters/figure_spec.tex      插图清单 + 全部 PlantUML 绘制语法
+%    figures/                      图片目录（按 figure_spec 中的命名放置）
+%    style/tongjidesign.sty        版式与 \figph 占位/自动替换命令
+% ============================================================
+\documentclass[UTF8,fontset=fandol,11pt,openany,a4paper]{ctexrep}
+\usepackage{tongjidesign}
+
+% ------------------------------------------------------------
+% 附录 B（PlantUML 源码）是否编入 PDF。
+% 默认 false：正式材料 PDF 只保留附录 A 的插图清单，便于控制页数。
+% 需要校对全部绘制语法时改为 true，可生成含「插图绘制规范」的 PDF。
+% 无论开关如何，chapters/figure_spec.tex 中的语法始终保留在模板中。
+% ------------------------------------------------------------
+\newif\iffigspecinpdf
+% 把下面一行改为 \figspecinpdftrue 即可把 PlantUML 源码编入 PDF
+\figspecinpdffalse
+
+\begin{document}
+
+% ------------------------------------------------------------
+% 封面
+% ------------------------------------------------------------
+\begin{titlepage}
+\thispagestyle{empty}
+\vspace*{1.2cm}
+\begin{center}
+{\Large\bfseries 计算机软件著作权登记材料\par}
+\vspace{2.4cm}
+{\Huge\bfseries 设计说明书\par}
+\vspace{1.0cm}
+{\LARGE\bfseries \softwarefullname\par}
+\vspace{0.5cm}
+{\Large \softwareversion\par}
+\vspace{2.6cm}
+\begin{tabular}{@{}ll@{}}
+软件简称 & \softwareshortname \\
+版本号   & \softwareversion \\
+开发方式 & 独立开发 \\
+权利取得方式 & 原始取得 \\
+编程语言 & Python、JavaScript / Vue、SQL \\
+源程序量 & 约 25600 行（后端约 13750 行，前端约 11860 行） \\
+开发完成日期 & \softwaredate \\
+\end{tabular}
+\vfill
+{\small 本说明书与《计算机软件著作权登记申请表》《源程序》共同构成登记材料\par}
+\end{center}
+\end{titlepage}
+
+% ------------------------------------------------------------
+% 目录
+% ------------------------------------------------------------
+\pagenumbering{Roman}
+\setcounter{tocdepth}{2}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+% ------------------------------------------------------------
+% 正文
+% ------------------------------------------------------------
+\input{chapters/design_body}
+
+% ------------------------------------------------------------
+% 附录：插图清单与绘制规范
+% ------------------------------------------------------------
+\appendix
+\ctexset{chapter={name={附录 ,},number=\Alph{chapter},
+                  format=\centering\LARGE\bfseries,aftername={\hspace{0pt}},
+                  beforeskip=12pt,afterskip=18pt}}
+\input{chapters/figure_spec}
+
+\end{document}

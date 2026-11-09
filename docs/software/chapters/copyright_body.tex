@@ -34,8 +34,8 @@
 % ------------------------------------------------------------
 \tjcrsection{软件基本信息}
 
-\tjcrrow{软件名称}{码极客具身智能体能力管理软件}
-\tjcrrow{软件简称}{\tjcrgray{没有可以不填写}}
+\tjcrrow{软件名称}{码极客具身导航多模态流式评测与诊断平台}
+\tjcrrow{软件简称}{码极客 NavEval Studio}
 \tjcrrow{版本号}{V1.0}
 
 \tjcrrow{权利范围}{%
@@ -68,7 +68,7 @@
   \tjcrchk{独立开发}\quad\tjcrunchk{合作开发}\quad\tjcrunchk{委托开发}\quad
   \tjunchecked\hspace{0.25em}下达任务开发（除独立开发，其他开发方式需要提供合同或协议书）}
 
-\tjcrrow{开发完成日期}{2026.09.05}
+\tjcrrow{开发完成日期}{2026.11.09}
 \tjcrrow{发布状态}{\tjcrunchk{已发表}\qquad\tjcrchk{未发表}}
 
 % “已发表信息”两小行放在同一单元格内，行间不画横线，标签自然居中。
@@ -98,13 +98,13 @@
   {x86-64处理器、8GB以上内存的台式机或笔记本}
 \tjcrrow{运行的硬件环境（\tjcrred{50字符内}）}%
   {x86\_64架PC或笔记本电脑，Intel Core i5及以上处理器，8GB及以上内存}
-\tjcrrow{开发该软件的操作系统（\tjcrred{50字符内}）}{Windows 11}
+\tjcrrow{开发该软件的操作系统（\tjcrred{50字符内}）}{Ubuntu 20.04 LTS}
 \tjcrrow{软件开发环境/开发工具（\tjcrred{50字符内}）}%
-  {VS Code、Python、FastAPI、Chrome开发者工具}
+  {VS Code、Python、Vue 3、Chrome开发者工具}
 \tjcrrow{该软件的运行平台/操作系统（\tjcrred{50字符内}）}%
-  {Windows、Linux或macOS，配合Chrome或Edge浏览器}
+  {Ubuntu、Windows，配合Chrome或Edge浏览器}
 \tjcrrow{软件运行支撑环境/支持软件（\tjcrred{50字符内}）}%
-  {Chrome或Edge浏览器，Python3.12、FastAPI、Docker}
+  {Python3.9以上、FastAPI、SQLite，可选habitat\_sim}
 
 \tjcrrow{编程语言}{%
   \linespread{1.5}\selectfont
@@ -114,49 +114,44 @@
   \tjcrunchk{Java}\quad\tjcrchk{JavaScript}\quad\tjcrunchk{MATLAB}\quad
   \tjcrunchk{Objective-C}\quad\tjcrunchk{PHP}\quad\tjcrunchk{PL/SQL}\quad
   \tjcrunchk{Perl}\quad\tjcrchk{Python}\quad\tjcrunchk{R}\quad
-  \tjcrunchk{Ruby}\quad\tjcrunchk{SQL}\quad\tjcrunchk{Swift}\newline
+  \tjcrunchk{Ruby}\quad\tjcrchk{SQL}\quad\tjcrunchk{Swift}\newline
   \tjcrunchk{Visual Basic}\quad\tjcrunchk{Visual Basic .Net}\newline
   如有需要，请输入其他编程语言：}
 
-\tjcrrow{源程序量}{7131行}
+\tjcrrow{源程序量}{25600行}
 \tjcrrow{开发目的（\tjcrred{50字符内}）}%
-  {构建具身智能体Recipe能力统一管理与调试终端。}
+  {为连续环境视觉语言导航模型提供可视化评测、诊断与实时仿真工具。}
 \tjcrrow{面向领域/行业（\tjcrred{50字符内}）}%
-  {具身智能、机器人巡检、智慧城市与工业运维。}
+  {人工智能、具身智能、机器人导航与高校科研。}
 
 % ------------------------------------------------------------
 % 软件的主要功能：按句号/分号拆成多条续行，便于跨页
 % ------------------------------------------------------------
 \tjcrrow{软件的主要功能\newline（\tjcrred{500-1300字内}）}{%
-  Geek Mind具身智能体能力管理软件面向具身智能体、巡检机器人和工业运维场景，
-  用于对Agent框架可调用的Recipe能力层进行集中展示、登记、管理、监控和调试。}
+  码极客具身导航多模态流式评测与诊断平台面向连续环境视觉语言导航模型，
+  提供从数据准备、任务调度、过程监控、结果分析到轨迹回放与实时仿真的一体化工程环境。}
 \tjcrcont{%
-  软件提供工业运维后台与大屏驾驶舱结合的Web界面，可在未连接真实机器人、
-  Zenoh总线或agent-server服务时进入离线演示模式，加载内置能力目录和模拟本体状态。}
+  数据与配置方面，软件支持数据集登记与扫描、Episode 检索、多源观测时间轴、
+  数据质量校验、全集与冒烟集切分生成，以及严格时间前缀的因果切片导出。}
 \tjcrcont{%
-  系统支持Recipe能力总览，统计注册能力、已接入能力、端侧能力、云端AI能力、
-  规划中能力和异常检测能力；支持能力目录管理，用户可新增、编辑、删除、搜索和筛选能力，
-  并维护能力名称、分类、状态、部署位置、调用协议、接口端点、输入输出Schema、
-  依赖服务和标签等信息。}
+  评测调度方面，软件提供配置模板与模型档案管理、模型可用性探测、任务队列与并发控制、
+  GPU 互斥、事件流实时监控、暂停恢复取消与失败重跑，并周期性采集显存、时延、上下文长度等资源数据。}
 \tjcrcont{%
-  软件内置巡检技能、导航技能、操作技能、视觉分析、异常检测、语音交互、空间交互、
-  云端AI和扩展能力等分类，预置本体回零、目标点导航、机械臂末端位姿控制、
-  机械臂关节控制、视觉反应式抓取、示教动作执行、底层速度指令、安全预检查、
-  急停中止和故障复位等机器人能力。}
+  推理与回放方面，软件以适配器协议对接外部推理后端，调度真实模型时逐帧采集位姿、朝向、动作、
+  单步时延、记忆窗口与裁剪前后 token 数；回放工作台四区联动，同屏显示第一视角画面、
+  俯视轨迹与参考路径、动作时间轴和记忆状态曲线，支持拖动定位、单步、倍速与循环播放。}
 \tjcrcont{%
-  同时扩展烟火检测、烟雾检测、违规摆摊识别、群众聚集检测、打架斗殴识别、
-  非法停车检测、垃圾堆放检测、安全帽识别、人员跌倒检测、危险区域闯入检测、
-  积水检测、云端VLM场景理解、OCR文字识别、ASR语音识别、TTS语音合成、
-  异常事件复核和巡检报告生成等AI能力接口。}
+  分析诊断方面，软件聚合成功率、加权成功率、导航误差、oracle 成功率、归一化动态时间规整与轨迹长度，
+  提供多任务对比与基线差值、模态与记忆策略消融矩阵、配对 bootstrap 显著性检验、失败归因、
+  长时性能曲线，并可导出 Markdown 与 CSV 报告。}
 \tjcrcont{%
-  在线模式下，软件可连接现有om1-agent-server，读取/health和/state接口，
-  动态同步机器人可用verb、本体状态、后端类型、FAULT故障锁存和示教动作；
-  接口调试中心可生成请求JSON，调用/verb、/dispatch、/abort、/reset等接口
-  并展示CompletionVerdict回执。}
+  交互式仿真方面，软件可从已登记 Episode 启动单局仿真，第一视角以视频流实时推送，
+  俯视图同时绘制实际轨迹、人类示范轨迹与最短路径，支持手动、模型驾驶与 oracle 自动驾驶三种方式，
+  并提供第三视角画中画、机器狗模型与会话录制导出。}
 \tjcrlastcont{%
-  软件通过能力状态区分已接入、降级、未连接、规划中、故障和停用，
-  既可管理真实端侧小脑能力，也可登记尚未实现的云端单点AI能力，
-  为具身智能体能力接入、运行监测和扩展治理提供统一终端。}
+  系统与资产方面，软件提供用户角色与操作审计、系统设置与 GPU 状态监测，
+  可自动导入备份库中的数据集、场景、模型、历史评测结果与资料文件，
+  并在无 GPU 环境下以离线演示模式跑通全部功能链路。}
 
 % ------------------------------------------------------------
 % 软件的技术特点
@@ -168,9 +163,9 @@
   \tjcrunchk{云计算软件}\quad\tjcrunchk{信息安全软件}\quad
   \tjcrunchk{大数据软件}\quad\tjcrchk{人工智能软件}\quad
   \tjcrunchk{VR软件}\quad\tjcrunchk{5G软件}\quad\tjcrunchk{小程序}\quad
-  \tjcrchk{物联网软件}\quad\tjcrchk{智慧城市软件}\par
+  \tjcrunchk{物联网软件}\quad\tjcrunchk{智慧城市软件}\par
   \vspace{0.4em}
-  技术特点（100字内）：（必填）采用Recipe能力目录与前后端分层设计，
-  支持离线演示、在线探测、能力增删改查、接口代理调试及机器人安全控制。}
+  技术特点（100字内）：（必填）适配器协议解耦模型，逐帧元数据打通评测与回放，
+  配置快照保证复现，输入白名单保证因果性，多线程解耦实现模型在环仿真。}
 
 \end{tjcrform}

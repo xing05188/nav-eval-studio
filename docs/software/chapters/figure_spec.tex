@@ -1,0 +1,1179 @@
+% ============================================================
+%  附录 A：插图清单（始终编入 PDF）
+%  附录 B：插图绘制规范与 PlantUML 源码（受 design.tex 中
+%          \figspecinpdf 开关控制）
+%
+%  【替换流程】
+%   1. 按本附录给出的文件名出图，放到 figures/ 目录；
+%   2. 结构图：复制对应 @startuml ... @enduml 保存为 .puml，
+%      用 plantuml 渲染为 PNG（或粘贴到在线 PlantUML 服务器导出）；
+%   3. 界面截图：按“取图步骤”在 1440×900 及以上分辨率截 PNG；
+%   4. 重新编译 design.tex，正文 \figph 检测到同名文件后
+%      自动把虚线占位框换成真实图片，无需改动正文。
+%
+%  【优先级】A 软著材料必需；B 建议；C 可选增强。
+% ============================================================
+
+\chapter{插图清单}
+
+本说明书正文共设置 48 处插图位置，分为两类：界面截图（\code{ui_XX_*.png}）与结构图（\code{arch_*}、\code{flow_*}、\code{state_*}、\code{seq_*}）。所有图片统一放在 \code{figures/} 目录，文件名为小写英文与下划线，不使用中文、空格与大写字母；扩展名优先 \code{.png}，矢量图可用 \code{.pdf}。图号由正文 \verb|\figph| 自动生成，本表用交叉引用给出，不会因插图增删而错位。
+
+表中“类型”栏说明该图的生成方式：截图类需在运行的系统中按取图步骤截取；PlantUML 类可直接用附录 B 给出的语法渲染。
+
+\small
+\begin{longtable}{@{}p{1.0cm}p{4.5cm}p{1.5cm}p{0.9cm}p{1.1cm}p{5.4cm}@{}}
+\toprule
+图号 & 文件名 & 类型 & 优先级 & 章节 & 内容 \\
+\midrule
+\endfirsthead
+\toprule
+图号 & 文件名 & 类型 & 优先级 & 章节 & 内容 \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\ref{fig:ui01} & \code{ui_01_overview.png} & 截图 & A & 2.1 & 系统首页总览 \\
+\ref{fig:ui02} & \code{ui_02_dataset_list.png} & 截图 & B & 2.2 & 数据集登记与扫描 \\
+\ref{fig:ui03} & \code{ui_03_observation_timeline.png} & 截图 & A & 2.2 & 多源观测时间轴 \\
+\ref{fig:ui04} & \code{ui_04_quality_validate.png} & 截图 & B & 2.2 & 数据质量校验结果 \\
+\ref{fig:ui05} & \code{ui_05_frame_viewer.png} & 截图 & C & 2.2 & 帧浏览与掩膜 \\
+\ref{fig:ui06} & \code{ui_06_task_wizard.png} & 截图 & A & 2.3 & 新建评测任务向导 \\
+\ref{fig:ui07} & \code{ui_07_task_monitor.png} & 截图 & A & 2.3 & 任务运行监控 \\
+\ref{fig:ui09} & \code{ui_09_replay_workbench.png} & 截图 & A & 2.4 & 轨迹回放工作台 \\
+\ref{fig:ui10} & \code{ui_10_memory_window.png} & 截图 & B & 2.4 & 记忆窗口与空间裁剪 \\
+\ref{fig:ui11} & \code{ui_11_geometry_overlay.png} & 截图 & C & 2.4 & 几何与运动状态叠加 \\
+\ref{fig:ui12} & \code{ui_12_analysis_compare.png} & 截图 & A & 2.5 & 多任务指标对比 \\
+\ref{fig:ui13} & \code{ui_13_ablation_matrix.png} & 截图 & B & 2.5 & 消融实验矩阵 \\
+\ref{fig:ui14} & \code{ui_14_bootstrap.png} & 截图 & C & 2.5 & 配对 bootstrap 结果 \\
+\ref{fig:ui15} & \code{ui_15_longhorizon.png} & 截图 & C & 2.5 & 长时性能曲线 \\
+\ref{fig:ui16} & \code{ui_16_failure_attribution.png} & 截图 & B & 2.5 & 失败归因分布 \\
+\ref{fig:ui17} & \code{ui_17_report_center.png} & 截图 & B & 2.5 & 评测报告导出 \\
+\ref{fig:ui18} & \code{ui_18_sim_workbench.png} & 截图 & A & 2.6 & 交互式仿真工作台 \\
+\ref{fig:ui19} & \code{ui_19_sim_policy.png} & 截图 & B & 2.6 & 模型驾驶面板 \\
+\ref{fig:ui20} & \code{ui_20_sim_oracle_trails.png} & 截图 & B & 2.6 & 三线轨迹对照 \\
+\ref{fig:ui21} & \code{ui_21_sim_pip_robot.png} & 截图 & C & 2.6 & 画中画与机器狗 \\
+\ref{fig:ui22} & \code{ui_22_sim_recording.png} & 截图 & C & 2.6 & 会话录制导出 \\
+\ref{fig:ui23} & \code{ui_23_backup_import.png} & 截图 & B & 2.7 & 备份库导入 \\
+\ref{fig:ui24} & \code{ui_24_system_status.png} & 截图 & B & 2.8 & 系统设置与状态 \\
+\ref{fig:ui26} & \code{ui_26_offline_mock.png} & 截图 & B & 3 & 离线演示模式 \\
+\ref{fig:ui27} & \code{ui_27_causal_guard.png} & 截图 & C & 3 & 因果性校验与审计 \\
+\ref{fig:arch02} & \code{arch_02_deployment.png} & 部署图 & B & 4.3 & 部署与运行拓扑 \\
+\ref{fig:arch01} & \code{arch_01_system_overview.png} & 组件图 & A & 5.1 & 系统总体架构 \\
+\ref{fig:arch03} & \code{arch_03_data_er.png} & ER 图 & B & 5.1 & 核心数据库 ER 图 \\
+\ref{fig:flow01} & \code{flow_01_eval_task.png} & 活动图 & A & 5.2 & 评测任务执行总流程 \\
+\ref{fig:flow02} & \code{flow_02_data_manage.png} & 活动图 & A & 6.1 & 数据与配置管理流程 \\
+\ref{fig:flow03} & \code{flow_03_scheduler.png} & 活动图 & A & 6.2 & 任务调度流程 \\
+\ref{fig:state01} & \code{state_01_task.png} & 状态图 & B & 6.2 & 任务状态机 \\
+\ref{fig:ui08} & \code{ui_08_task_queue.png} & 截图 & B & 6.2 & 任务队列与控制 \\
+\ref{fig:arch04} & \code{arch_04_adapter_class.png} & 类图 & B & 6.3 & 适配器协议类图 \\
+\ref{fig:flow04} & \code{flow_04_adapter_replay.png} & 活动图 & A & 6.3 & 适配器与逐帧回放流程 \\
+\ref{fig:flow05} & \code{flow_05_analysis.png} & 活动图 & B & 6.4 & 指标分析与诊断流程 \\
+\ref{fig:flow06} & \code{flow_06_sim.png} & 活动图 & A & 6.5 & 交互式仿真流程 \\
+\ref{fig:seq02} & \code{seq_02_sim_session.png} & 时序图 & B & 6.5 & 仿真会话时序 \\
+\ref{fig:flow07} & \code{flow_07_backup_import.png} & 活动图 & B & 6.6 & 资产同步导入流程 \\
+\ref{fig:flow08} & \code{flow_08_auth.png} & 活动图 & B & 6.7 & 登录鉴权与权限流程 \\
+\ref{fig:ui25} & \code{ui_25_audit_log.png} & 截图 & C & 6.7 & 操作审计日志 \\
+\ref{fig:flow09} & \code{flow_09_causal_guard.png} & 活动图 & B & 7.4 & 因果性校验流程 \\
+\ref{fig:seq01} & \code{seq_01_sse_monitor.png} & 时序图 & B & 7.6 & 实时监控 SSE 时序 \\
+\ref{fig:ui28} & \code{ui_28_login.png} & 截图 & A & 9.1 & 登录页 \\
+\ref{fig:flow11} & \code{flow_11_ui_interaction.png} & 活动图 & B & 9.3 & 界面导航与操作旅程 \\
+\ref{fig:flow12} & \code{flow_12_test_process.png} & 活动图 & C & 10.3 & 测试执行流程 \\
+\ref{fig:flow10} & \code{flow_10_error_handling.png} & 活动图 & B & 11.1 & 出错处理与降级流程 \\
+\ref{fig:flow13} & \code{flow_13_maintenance.png} & 活动图 & C & 12.4 & 系统维护与升级流程 \\
+\end{longtable}
+\normalsize
+
+\noindent 合计 48 处：界面截图 28 张，PlantUML 结构图 20 张（组件图 1、部署图 1、ER 图 1、类图 1、活动图 13、状态图 1、时序图 2）。若时间有限，先完成 A 类的 14 张即可覆盖软著材料的主要功能与架构说明。
+
+\iffigspecinpdf
+\chapter{插图绘制规范与 PlantUML 源码}
+
+\section{通用出图约定}
+
+\begin{itemize}[leftmargin=2em,itemsep=0.2em]
+\item 结构图：把下面的 \code{@startuml ... @enduml} 片段保存为同名 \code{.puml} 文件，执行 \code{plantuml -tpng -o . figures/<文件名去掉.png>.puml} 生成 PNG；也可粘贴到在线 PlantUML 服务导出。中文渲染需在本机安装中文字体，并把 \code{skinparam defaultFontName} 改为实际字体名。
+\item 界面截图：启动服务 \code{python run.py --no-browser}，用 Chrome/Edge 在 1440×900 或 1920×1080 分辨率下截取，建议开启系统自带的设备缩放 100\%，去掉浏览器书签栏；导出 PNG，按清单命名。
+\item 图片宽度建议不小于 1400 像素，正文按版心宽度的 92\% 缩放，最大高度限制为版心高度的 70\%，因此过高的长图会被等比缩小；流程图建议控制纵向层级在 8 层以内。
+\item 若某张图暂时不做，占位虚线框会保留版面位置，图号与交叉引用不受影响。
+\end{itemize}
+
+\section{图~\ref{fig:arch01}：系统总体架构图}
+
+文件 \code{arch_01_system_overview.png}，组件图。画法：按七层自上而下排列，前端三块（页面组、回放、仿真）→ 接口层三个组件 → 业务服务层五个组件 → 独立的仿真子系统包 → 适配器层 → 数据存储层 → 外部后端；用实线箭头标注 HTTP/JSON、SSE、MJPEG、子进程、文件读写等协议。
+
+\begin{lstlisting}[style=navplain]
+@startuml arch_01_system_overview
+skinparam componentStyle rectangle
+skinparam defaultFontName "Noto Sans CJK SC"
+title 码极客 NavEval Studio V1.0 系统总体架构图
+actor "用户 admin/operator/viewer" as User
+
+package "浏览器前端 Vue 3" {
+  [总览/数据/任务/分析页面组] as UI1
+  [回放工作台 Canvas] as UI2
+  [交互式仿真 MJPEG] as UI3
+}
+package "接口服务层 FastAPI" {
+  [REST 路由 / Pydantic 校验] as API
+  [Bearer + ?token 鉴权] as AUTH
+  [SSE 事件流] as SSE
+}
+package "业务服务层" {
+  [数据扫描/切分/质量校验] as SVC1
+  [任务编排/调度器] as SVC2
+  [指标聚合/归因/报告] as SVC3
+  [回放解析/资产导入] as SVC4
+  [后台守护 自动同步] as SVC5
+}
+package "仿真子系统（可选）" {
+  [会话管理/动作队列] as SIM1
+  [引擎线程 渲染循环] as SIM2
+  [策略/录制/俯视绘制] as SIM3
+}
+package "适配器层" {
+  [BaseAdapter 协议] as ADP
+  [StreamVLNAdapter] as ADP1
+  [MockAdapter] as ADP2
+}
+package "数据存储层" {
+  [SQLite WAL eval.db] as DB
+  [工作目录 storage/] as FS
+}
+package "外部推理与仿真后端" {
+  [StreamVLN 推理子进程] as EXT1
+  [habitat_sim 场景渲染] as EXT2
+}
+User --> UI1
+UI1 --> API : HTTP / JSON
+UI2 --> API : 回放 JSON + 帧图像
+UI3 --> SSE : 事件流
+UI3 --> API : MJPEG / ?token=
+API --> AUTH
+API --> SVC1
+API --> SVC2
+API --> SVC3
+API --> SVC4
+SVC2 --> SSE : 进度/采样/日志
+SVC2 --> ADP
+ADP <|-- ADP1
+ADP <|-- ADP2
+ADP1 --> EXT1 : 子进程 + --dump_frames
+SVC4 --> SIM1
+SIM1 --> SIM2
+SIM1 --> SIM3
+SIM2 --> EXT2
+SIM3 --> EXT2
+SVC1 --> DB
+SVC2 --> DB
+SVC3 --> DB
+SVC4 --> DB
+SVC5 --> DB
+SVC5 --> FS : 备份库目录监视
+SVC2 --> FS : 快照/日志/逐帧 jsonl
+SIM3 --> FS : 录制帧与 mp4
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:arch02}：部署与运行拓扑图}
+
+文件 \code{arch_02_deployment.png}，部署图。画法：三个 node（客户端、单机服务器、外部资源/设备），把 Uvicorn 单进程、静态资源、SQLite、工作目录、守护线程、仿真线程放进服务器 node；GPU、Habitat、备份库、上游权重放进外部 node。
+
+\begin{lstlisting}[style=navplain]
+@startuml arch_02_deployment
+skinparam defaultFontName "Noto Sans CJK SC"
+title 部署与运行拓扑
+node "客户端" {
+  [Chrome / Edge 浏览器] as Browser
+}
+node "单机服务器 Ubuntu/Windows, Python 3.9+" {
+  [Uvicorn + FastAPI 单进程 run.py] as App
+  [静态资源 frontend/dist] as Dist
+  [SQLite eval.db WAL] as DB
+  [工作目录 storage/] as Storage
+  [后台守护 备份库同步] as Daemon
+  [仿真引擎线程 可选] as Sim
+}
+node "外部资源与设备" {
+  [NVIDIA GPU] as GPU
+  [habitat_sim + 场景 .glb] as Habitat
+  [备份库目录] as Backup
+  [StreamVLN 代码/权重/结果] as Upstream
+}
+Browser --> App : HTTP /api + SSE + MJPEG
+App --> Dist : 托管静态资源
+App --> DB : SQLAlchemy
+App --> Storage : 快照/日志/逐帧/报告
+Daemon --> Backup : 目录监视与增量导入
+App --> Upstream : 适配器启动子进程
+App --> Sim : 会话编排
+Sim --> Habitat : 渲染与最短路径
+Upstream --> GPU : torchrun 推理
+Sim --> GPU : 渲染 / 8bit 模型驾驶
+App --> Browser : 0.0.0.0:8080 /docs /health
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:arch03}：核心数据库 ER 图}
+
+文件 \code{arch_03_data_er.png}。画法：用 \code{entity} 画实体，标出主键与关键字段，用 \texttt{||--o\{} 表示一对多；\code{backup_asset} 用软关联（虚线）表示不建外键。
+
+\begin{lstlisting}[style=navplain]
+@startuml arch_03_data_er
+hide circle
+skinparam linetype ortho
+skinparam defaultFontName "Noto Sans CJK SC"
+title 核心数据库 ER 图（节选）
+entity "app_user" as U {
+  * id : INTEGER <<PK>>
+  username / role / enabled
+}
+entity "audit_log" as AL {
+  * id : INTEGER <<PK>>
+  user_id / action / detail_json
+}
+entity "dataset" as D {
+  * id : INTEGER <<PK>>
+  name / version / root_path / status
+}
+entity "episode" as E {
+  * id : INTEGER <<PK>>
+  dataset_id <<FK>> / instruction / scene_id
+}
+entity "split" as S {
+  * id : INTEGER <<PK>>
+  dataset_id <<FK>> / kind / seed
+}
+entity "split_episode" as SE {
+  split_id + episode_id <<PK>>
+}
+entity "model_profile" as M {
+  * id : INTEGER <<PK>>
+  name / code_path / weight_path
+}
+entity "config_template" as T {
+  * id : INTEGER <<PK>>
+  name / params_json
+}
+entity "eval_task" as ET {
+  * id : INTEGER <<PK>>
+  dataset_id/split_id/model_id <<FK>>
+  status / config_json / seed
+}
+entity "task_episode" as TE {
+  * id : INTEGER <<PK>>
+  task_id + episode_id 唯一
+  success / spl / ne / traj_path / failure_reason
+}
+entity "resource_sample" as RS {
+  * id : INTEGER <<PK>>
+  task_id / gpu_mem_mb / latency_ms
+}
+entity "artifact" as A {
+  * id : INTEGER <<PK>>
+  task_id / kind / path
+}
+entity "setting" as ST { key <<PK>> / value }
+entity "backup_asset" as BA {
+  * id : INTEGER <<PK>>
+  source_key + signature / section / path
+}
+U ||--o{ AL
+D ||--o{ E
+D ||--o{ S
+S ||--o{ SE
+E ||--o{ SE
+M ||--o{ ET
+D ||--o{ ET
+S ||--o{ ET
+ET ||--o{ TE
+E ||--o{ TE
+ET ||--o{ RS
+ET ||--o{ A
+T ..> ET : config_json 引用
+BA ..> D : entity_type/id 软关联
+BA ..> M : 软关联
+BA ..> ET : 软关联
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:arch04}：适配器协议类图}
+
+文件 \code{arch_04_adapter_class.png}。画法：抽象基类给出 \code{prepare/run/finish} 三阶段契约，两个子类体现真实/离线两条实现路径，调度器通过基类接口调用，回放服务消费逐帧文件。
+
+\begin{lstlisting}[style=navplain]
+@startuml arch_04_adapter_class
+skinparam defaultFontName "Noto Sans CJK SC"
+title 适配器协议类图
+abstract class BaseAdapter {
+  + name : str
+  + prepare(ctx) : AdapterContext
+  + run(ctx, on_event) : Iterator[Record]
+  + finish(ctx, records) : Summary
+  # build_command(ctx) : list[str]
+  # parse_line(line) : Record | None
+  # supports_dump_frames() : bool
+}
+class StreamVLNAdapter {
+  + prepare(ctx) : 生成配置/输出目录/逐帧开关
+  + run(ctx) : 子进程增量解析 result.json
+  - parse_frames(jsonl) : list[Frame]
+  - degrade_on_unknown_arg()
+}
+class MockAdapter {
+  + run(ctx) : 读取预置结果 + 种子扰动
+  - load_seed_results()
+}
+class EvalScheduler {
+  + enqueue(task)
+  + dispatch()
+  - check_gpu_mutex()
+}
+class ReplayService {
+  + load(task_id, row_id)
+  + build_geometry(frames)
+  + build_memory(frames)
+}
+class FrameRecord {
+  idx / t / pose / yaw / action
+  latency_ms / window_len / slow_update
+  tokens_before_prune / tokens_after_prune / ctx_len
+}
+BaseAdapter <|-- StreamVLNAdapter
+BaseAdapter <|-- MockAdapter
+EvalScheduler --> BaseAdapter : prepare/run/finish
+StreamVLNAdapter ..> FrameRecord : 落盘 jsonl
+ReplayService ..> FrameRecord : 读取回放
+EvalScheduler ..> FrameRecord : 登记 traj_path
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:flow01}：评测任务执行总流程}
+
+文件 \code{flow_01_eval_task.png}，活动图，软著材料的核心流程图。画法：用泳道区分前端、接口服务层、调度器、适配器/子进程、数据存储，覆盖提交、校验、排队、执行、事件回写、聚合六个阶段。
+
+\begin{lstlisting}[style=navplain]
+@startuml flow_01_eval_task
+skinparam defaultFontName "Noto Sans CJK SC"
+title 评测任务执行总流程
+|前端|
+start
+:选择数据集/切分/模型/模板并覆盖参数;
+:提交创建任务;
+|接口服务层|
+:参数校验 + 因果性白名单预检;
+if (校验通过?) then (否)
+  :返回 1001 / 1006 与具体字段;
+  |前端|
+  :就地提示并保留表单;
+  stop
+else (是)
+endif
+|数据存储|
+:写入 eval_task(queued) 与配置快照;
+|调度器|
+:入队，等待并发额度与 GPU 互斥;
+:取出任务，创建工作目录;
+:写 config.json 与启动命令;
+|适配器/子进程|
+:prepare 校验路径与后端能力;
+:拉起推理子进程（可选 --dump_frames）;
+repeat
+  :逐条执行 episode;
+  :产出进度/资源/日志/逐帧记录;
+  |数据存储|
+  :按行解析写 task_episode 与 frames/*.jsonl;
+  |前端|
+  :SSE 更新进度条/曲线/日志;
+repeat while (还有 episode?) is (是)
+|接口服务层|
+:聚合指标、生成回放索引与报告索引;
+:任务置为 succeeded，推送 done 事件;
+|前端|
+:展示结果，支持对比/回放/导出;
+stop
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:flow02}：数据与配置管理子系统流程}
+
+文件 \code{flow_02_data_manage.png}。画法：一条主干（登记→扫描→索引→校验→切分→导出），在校验处分支展示问题清单，在导出处强调时间前缀二次校验。
+
+\begin{lstlisting}[style=navplain]
+@startuml flow_02_data_manage
+skinparam defaultFontName "Noto Sans CJK SC"
+title 数据与配置管理子系统流程
+start
+:登记数据集 名称/版本/类型/根路径;
+:路径白名单校验;
+if (路径合法且存在?) then (否)
+  :状态 missing，提示修正;
+  stop
+else (是)
+endif
+:扫描 episode 清单与帧元数据;
+:写 episode 索引，统计场景/指令/轨迹长度;
+:状态置为 ready;
+:多源观测按时间戳对齐，标记偏差区段;
+:质量校验 缺帧/乱序/位姿跳变/深度全零/空指令;
+if (存在问题?) then (是)
+  :输出问题清单与涉及 episode;
+else (否)
+  :标记校验通过;
+endif
+:选择切分方式 full / smoke / subset;
+:按场景分层抽样并固定 seed;
+:写 split 与 split_episode，保存生成条件;
+:因果切片导出：截取至指定步;
+:二次校验不含晚于截止步的帧;
+:写出 jsonl 并返回下载链接;
+stop
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:flow03}：任务调度子系统流程}
+
+文件 \code{flow_03_scheduler.png}。画法：循环从队列取任务，突出并发额度、GPU 互斥、episode 边界上的暂停/取消检查与失败重跑。
+
+\begin{lstlisting}[style=navplain]
+@startuml flow_03_scheduler
+skinparam defaultFontName "Noto Sans CJK SC"
+title 任务调度子系统流程
+start
+while (队列非空?) is (是)
+  :按优先级取队首任务;
+  if (并发额度未满 且 GPU 未被占用?) then (否)
+    :留在队列等待下一轮;
+  else (是)
+    :标记 running，占用 GPU 编号;
+    :prepare → run 适配器;
+    while (还有 episode?) is (是)
+      :执行一条 episode 并写结果;
+      if (收到暂停?) then (是)
+        :在 episode 边界置 paused;
+        :释放并发额度，等待 resume;
+      else (否)
+      endif
+      if (收到取消?) then (是)
+        :终止子进程，超时则强杀;
+        :置 cancelled 并释放资源;
+        stop
+      else (否)
+      endif
+      :推送 progress/sample/log 事件;
+    endwhile
+    :聚合指标，置 succeeded 或 failed;
+    :释放并发额度与 GPU;
+  endif
+endwhile (否)
+:队列空闲，等待新任务或重试;
+stop
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:state01}：评测任务状态机}
+
+文件 \code{state_01_task.png}，状态图。画法：六个状态与创建/调度/暂停/恢复/取消/完成/失败/重跑事件。
+
+\begin{lstlisting}[style=navplain]
+@startuml state_01_task
+skinparam defaultFontName "Noto Sans CJK SC"
+title 评测任务状态机
+[*] --> queued : 创建任务（配置快照 + 因果预检）
+queued --> running : 调度器取任务 / 并发与 GPU 满足
+running --> paused : pause（下个 episode 边界生效）
+paused --> queued : resume
+running --> cancelled : cancel（终止子进程）
+running --> failed : 子进程异常 / 服务重启遗留
+running --> succeeded : 全部 episode 完成
+failed --> queued : retry-failed（仅失败项）
+cancelled --> queued : 重新提交
+succeeded --> [*]
+cancelled --> [*]
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:flow04}：推理适配器与逐帧回放流程}
+
+文件 \code{flow_04_adapter_replay.png}。画法：从 prepare 探测上游能力开始，分“支持/不支持逐帧”两支，最终汇合到回放接口与四区工作台。
+
+\begin{lstlisting}[style=navplain]
+@startuml flow_04_adapter_replay
+skinparam defaultFontName "Noto Sans CJK SC"
+title 推理适配器与逐帧回放流程
+start
+:读取模型档案与配置快照;
+:prepare 校验路径/权重/GPU，创建输出目录;
+:探测上游是否支持 --dump_frames;
+if (支持逐帧?) then (是)
+  :启动命令追加逐帧落盘参数;
+  :上游每步写位姿/动作/时延/记忆状态;
+  :适配器解析 jsonl，按 idx 规整去重复半行;
+  :写 frames/<episode>.jsonl 并登记 traj_path;
+else (否)
+  :记录日志，降级为仅汇总指标;
+endif
+:汇总 SR/SPL/NE/OS/nDTW/TL 与资源峰值;
+:回放请求 GET /api/replay/{task}/{row};
+if (存在逐帧文件?) then (是)
+  :还原俯视轨迹、第一视角、动作时间轴、记忆曲线;
+  :四区联动 拖动/单步/倍速/循环;
+else (否)
+  :显示汇总指标与参考路径，提示降级;
+endif
+stop
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:flow05}：指标分析与诊断流程}
+
+文件 \code{flow_05_analysis.png}。画法：从逐条结果到四条分析支路（对比、消融、显著性、长时曲线）与失败归因，最后汇入报告导出。
+
+\begin{lstlisting}[style=navplain]
+@startuml flow_05_analysis
+skinparam defaultFontName "Noto Sans CJK SC"
+title 指标分析与诊断流程
+start
+:读取 task_episode 逐条结果;
+:聚合 SR/SPL/NE/OS/nDTW/TL（宏/微平均）;
+fork
+  :多任务对比矩阵 + 基线差值列;
+fork again
+  :按 模态组合 × 记忆策略 生成消融矩阵;
+fork again
+  :同 episode 集合配对 bootstrap;
+  :输出均值差与 95% 置信区间;
+fork again
+  :按步数分桶统计 SR 与 NE，画长时曲线;
+end fork
+:失败归因九类规则自动分类;
+:人工复核覆盖自动结论并写审计;
+:生成 Markdown / CSV 报告并下载;
+stop
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:seq01}：实时监控 SSE 时序图}
+
+文件 \code{seq_01_sse_monitor.png}。画法：六个参与者，体现订阅、事件总线节流、日志落盘、断线轮询降级。
+
+\begin{lstlisting}[style=navplain]
+@startuml seq_01_sse_monitor
+autonumber
+skinparam defaultFontName "Noto Sans CJK SC"
+title 实时监控 SSE 时序
+actor "浏览器" as B
+participant "FastAPI /events" as A
+participant "事件总线" as E
+participant "调度器" as S
+participant "适配器子进程" as P
+database "SQLite / 日志" as D
+B -> A : GET /api/tasks/12/events
+A --> B : 200 text/event-stream
+S -> P : 启动并逐条执行 episode
+loop 每条 episode
+  P -> S : 进度/资源采样/日志/逐帧
+  S -> D : 写 task_episode 与 run.log
+  S -> E : publish(progress/sample/log)
+  E -> A : 节流 >=500ms 后投递
+  A --> B : event: progress / sample / log
+  B -> B : 更新进度条/曲线/日志面板
+end
+S -> E : publish(done, metrics)
+A --> B : event: done
+B -> A : 关闭连接
+note over B,A #F0F0F0
+  SSE 不可用时前端切换
+  ?fallback=poll 轮询降级
+end note
+@enduml
+\end{lstlisting}
+\section{图~\ref{fig:flow06}：交互式仿真子系统流程}
+
+文件 \code{flow_06_sim.png}。画法：会话启动后 \code{fork} 出引擎循环、驾驶指令、录制三条并行支路，用 \code{end fork} 汇合到停止与资源释放。
+
+\begin{lstlisting}[style=navplain]
+@startuml flow_06_sim
+skinparam defaultFontName "Noto Sans CJK SC"
+title 交互式仿真子系统流程
+start
+:从 episode 读取场景/起点/目标/参考路径;
+:显存预警与单会话检查（有旧会话先停止）;
+:构建 Habitat 环境，启动引擎线程;
+fork
+  :按固定节拍应用动作;
+  :渲染第一视角 + 第三视角画中画;
+  :整帧只编码一次 JPEG;
+  :分发给所有观看者（MJPEG）;
+  :绘制俯视底图与三条轨迹线;
+fork again
+  :手动按钮/键盘动作写入动作队列;
+  :或 oracle 沿 navmesh 最短路径逐点跟随;
+  :或 模型推理线程消费观测并输出动作;
+  :动作队列按节拍被引擎消费;
+fork again
+  :按 record_fps 采样落 JPEG 帧;
+  :停止后异步编码 mp4 并登记下载;
+end fork
+:状态快照含步数/距离/测地距离/NE/SPL 估计;
+if (空闲超过阈值 或 用户停止?) then (是)
+else (否)
+  :继续会话;
+endif
+:串行停止引擎线程、释放 GL 上下文与显存;
+stop
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:seq02}：仿真会话时序图}
+
+文件 \code{seq_02_sim_session.png}。画法：五个参与者，体现单会话启动、MJPEG 长连接、状态轮询、动作指令、模型驾驶与停止释放。
+
+\begin{lstlisting}[style=navplain]
+@startuml seq_02_sim_session
+autonumber
+skinparam defaultFontName "Noto Sans CJK SC"
+title 交互式仿真会话时序
+actor "浏览器" as B
+participant "会话层 /api/sim" as S
+participant "引擎线程" as E
+participant "推理线程（可选）" as P
+participant "录制模块" as R
+B -> S : POST /sessions (episode_id)
+S --> B : loading（单会话、显存闸门）
+S -> E : 构建场景并启动渲染循环
+B -> S : GET /stream (?token=)
+E --> B : multipart/x-mixed-replace JPEG 帧
+loop 每个节拍
+  B -> S : POST /actions (forward/left/right/stop)
+  S -> E : 动作入队
+  alt 模型驾驶开启
+    E -> P : 当前第一视角观测
+    P -> S : 动作序列（约 4 Hz）
+    S -> E : 动作入队
+  end
+  E -> R : 采样帧落盘
+  B -> S : GET /state (?token=)
+  S --> B : 步数/距离/NE/SPL/三条轨迹/帧率
+end
+B -> S : POST /recordings/export
+R --> S : 异步编码 mp4 进度
+B -> S : DELETE /sessions/current
+S -> E : 停止循环，释放 GL 上下文
+S -> P : 卸载权重，释放显存
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:flow07}：资产同步导入流程}
+
+文件 \code{flow_07_backup_import.png}。画法：扫描→五类分类→签名比对→dry\_run 分支→写入→运行中结果增量同步。
+
+\begin{lstlisting}[style=navplain]
+@startuml flow_07_backup_import
+skinparam defaultFontName "Noto Sans CJK SC"
+title 资产同步导入流程
+start
+:读取绑定目录与自动同步开关;
+:按类别扫描 数据集/场景/模型/结果/资料;
+:排除 train 等大目录，超阈值只登记路径;
+:计算 source_key + signature;
+if (与账本一致?) then (是)
+  :跳过，保持已有记录;
+else (否)
+  if (dry_run 预览?) then (是)
+    :只输出候选清单，不写库;
+  else (否)
+    :分类写入 dataset/episode、backup_asset;
+    :模型目录自动配置 model_profile;
+    :历史结果还原为可回放 eval_task;
+  endif
+endif
+if (结果文件仍在写入?) then (是)
+  :保持运行中，按条数增量刷新进度;
+else (否)
+  :转为已完成并补齐指标;
+endif
+:后台守护按间隔再次监视目录变化;
+stop
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:flow08}：登录鉴权与权限校验流程}
+
+文件 \code{flow_08_auth.png}。画法：口令校验（含用户不存在时的伪哈希）→ 令牌签发 → 两种鉴权通道 → 角色判定。
+
+\begin{lstlisting}[style=navplain]
+@startuml flow_08_auth
+skinparam defaultFontName "Noto Sans CJK SC"
+title 登录鉴权与权限校验流程
+start
+:POST /api/auth/login 提交用户名口令;
+:查询用户（不存在时仍执行一次哈希）;
+:比对 PBKDF2 加盐哈希;
+if (口令正确?) then (否)
+  :返回 1002 并记录失败尝试;
+  stop
+else (是)
+endif
+:签发带有效期的 HMAC access_token;
+:前端保存令牌，路由守卫校验登录态;
+if (请求类型?) then (常规接口)
+  :Authorization: Bearer <token>;
+else (img / MJPEG / 下载)
+  :?token=<access_token> 单独通道;
+endif
+if (令牌有效?) then (否)
+  :返回 1002 未登录或失效;
+  stop
+else (是)
+endif
+:按 admin / operator / viewer 判定权限;
+if (允许访问?) then (否)
+  :返回 1003 或前端重定向总览;
+else (是)
+  :执行接口，关键操作写审计日志;
+endif
+stop
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:flow09}：因果性校验流程}
+
+文件 \code{flow_09_causal_guard.png}。画法：配置白名单与运行期时间前缀两道闸门，越界即中断并写审计。
+
+\begin{lstlisting}[style=navplain]
+@startuml flow_09_causal_guard
+skinparam defaultFontName "Noto Sans CJK SC"
+title 因果性校验流程
+start
+:任务提交，解析配置快照中的输入项;
+:读取模型允许的输入白名单 [rgb,depth,pose,action];
+if (全部在白名单内?) then (否)
+  :返回 1006，提示具体非法字段;
+  :前端就地提示，任务不予创建;
+  stop
+else (是)
+endif
+:写入 eval_task，进入调度;
+|运行期|
+:按 episode 读取观测，构造严格 t 前缀切片;
+:因果切片导出前二次校验不含未来帧;
+if (检测到 t 之后的观测访问?) then (是)
+  :立即中断任务，标记失败;
+  :写审计日志与运行日志;
+  stop
+else (否)
+endif
+:允许模型推理与逐帧元数据采集;
+:结果落盘，因果性校验记录随任务保存;
+stop
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:flow11}：界面导航与典型操作旅程}
+
+文件 \code{flow_11_ui_interaction.png}。画法：一条主干用户旅程，标出离线演示模式的捷径分支。
+
+\begin{lstlisting}[style=navplain]
+@startuml flow_11_ui_interaction
+skinparam defaultFontName "Noto Sans CJK SC"
+title 界面导航与典型操作旅程
+start
+:登录 → 总览;
+:数据与配置：登记数据集、确认模型档案;
+:生成切分（full / smoke / subset）;
+if (有 GPU 与真实后端?) then (否)
+  :离线演示：Mock 适配器 + 预置结果;
+  :跳过真实推理，直接得到任务结果;
+else (是)
+  :新建评测任务向导，覆盖参数并提交;
+  :任务监控页观察进度、日志、资源曲线;
+endif
+:结果分析：指标对比、消融、显著性、归因;
+:轨迹回放：定位失败步，查看记忆窗口;
+:报告中心导出 Markdown / CSV;
+if (需要现场行为对照?) then (是)
+  :交互式仿真：手动/模型/oracle 驾驶;
+  :俯视三线对照并录制导出;
+else (否)
+endif
+:结束;
+stop
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:flow12}：测试执行流程}
+
+文件 \code{flow_12_test_process.png}。画法：用例设计→环境准备→分层执行→缺陷跟踪→回归→验收的闭环。
+
+\begin{lstlisting}[style=navplain]
+@startuml flow_12_test_process
+skinparam defaultFontName "Noto Sans CJK SC"
+title 测试执行流程
+start
+:依据需求编号编写用例与判据;
+:准备离线环境（Mock）与在线环境（GPU）;
+:单元测试 / 接口契约测试;
+:功能测试：D/T/A/R/E/S 各链路;
+:端到端场景：数据→任务→分析→回放→报告;
+:性能、安全与兼容性专项测试;
+if (发现缺陷?) then (是)
+  :提交缺陷单（现象/复现/日志/影响面）;
+  :定位修复并补充回归用例;
+  :回归受影响链路;
+else (否)
+endif
+:汇总测试记录与验收结论;
+:材料收尾：截图、说明书、源程序;
+stop
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:flow10}：出错处理与降级流程}
+
+文件 \code{flow_10_error_handling.png}。画法：异常捕获后按五类分流，区分可降级、可重试、必须终止三类动作，统一落盘与用户提示。
+
+\begin{lstlisting}[style=navplain]
+@startuml flow_10_error_handling
+skinparam defaultFontName "Noto Sans CJK SC"
+title 出错处理与降级流程
+start
+:接口/服务/子进程/仿真 捕获异常;
+:记录上下文（任务号、episode、堆栈仅入日志）;
+if (错误类别?) then (参数与校验)
+  :返回 1001/1006，字段级提示;
+else (认证与授权)
+  :返回 1002/1003，跳转登录;
+else (状态冲突)
+  :返回 1005，提示当前状态;
+else (依赖不可用)
+  :返回 2002 或按降级表切换备用路径;
+  :上游不支持逐帧 / 无 RGB 帧 / SSE 失效 / 仿真缺失;
+else (内部异常)
+  :返回 2001，标记该 episode 失败;
+endif
+if (可恢复?) then (是)
+  :重试失败项或等待依赖恢复;
+else (否)
+  :终止当前任务，释放子进程与显存;
+endif
+:写运行日志与审计，前端统一消息提示;
+stop
+@enduml
+\end{lstlisting}
+
+\section{图~\ref{fig:flow13}：系统维护与升级流程}
+
+文件 \code{flow_13_maintenance.png}。画法：监控→备份→升级→迁移→冒烟回归→异常回滚，并区分前端 dist 热更新与后端重启。
+
+\begin{lstlisting}[style=navplain]
+@startuml flow_13_maintenance
+skinparam defaultFontName "Noto Sans CJK SC"
+title 系统维护与升级流程
+start
+:健康检查 /health 与系统状态页监控;
+:确认无运行中任务，停止服务;
+:备份 eval.db 与 storage 工作目录;
+if (更新范围?) then (仅前端)
+  :npm run build 覆盖 frontend/dist;
+  :无需重启后端，浏览器强制刷新;
+else (后端或配置)
+  :替换后端代码 / 修改 YAML;
+  :重启服务，自动执行表迁移;
+endif
+:冒烟用例回归：登录、扫描、Mock 任务、回放;
+if (回归通过?) then (否)
+  :回滚代码并还原数据库与工作目录;
+  :记录故障与原因;
+else (是)
+  :清理过期产物，更新文档与插图;
+endif
+:恢复对外服务并继续监控;
+stop
+@enduml
+\end{lstlisting}
+
+\section{界面截图：取图步骤}
+
+界面截图共 28 张，统一在系统启动后（\code{python run.py --no-browser}，访问 \code{http://127.0.0.1:8080/}）用 Chrome/Edge 截取。建议先用默认管理员账号登录，并准备一个已完成的 Mock 任务、一个已扫描的数据集与至少一条可用于回放的结果，以便截图内容饱满。截图中避免出现真实敏感路径与个人信息。下表的“路由/页面”即浏览器中应打开的地址。
+
+\scriptsize
+\begin{longtable}{@{}p{0.9cm}p{4.0cm}p{2.6cm}p{6.7cm}@{}}
+\toprule
+图号 & 文件名 & 路由 / 页面 & 取图步骤与画面要素 \\
+\midrule
+\endfirsthead
+\toprule
+图号 & 文件名 & 路由 / 页面 & 取图步骤与画面要素 \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\ref{fig:ui01} & \code{ui_01_overview.png} & \code{/overview} & 登录后首页；含统计卡、当前队列、最近任务列表、指标趋势与两个快捷入口 \\
+\ref{fig:ui02} & \code{ui_02_dataset_list.png} & \code{/datasets} & 数据集列表；展开一个数据集的登记/扫描结果，显示状态与场景、episode 统计 \\
+\ref{fig:ui03} & \code{ui_03_observation_timeline.png} & \code{/datasets/:id} & 打开某 episode 的观测时间轴；RGB/深度/位姿/动作四条轨道与时间偏差标记 \\
+\ref{fig:ui04} & \code{ui_04_quality_validate.png} & \code{/datasets/:id} & 点击质量校验；显示问题类型分布、问题清单与 episode 编号 \\
+\ref{fig:ui05} & \code{ui_05_frame_viewer.png} & \code{/datasets/:id} & 帧浏览切到 RGB/深度；叠加可通行区域掩膜 \\
+\ref{fig:ui06} & \code{ui_06_task_wizard.png} & \code{/tasks} & 点击新建评测；数据集/切分/模型/模板选择与参数覆盖区完整可见 \\
+\ref{fig:ui07} & \code{ui_07_task_monitor.png} & \code{/tasks/:id} & 任务运行中截取；进度条、当前 episode、实时日志、显存/延迟曲线同屏 \\
+\ref{fig:ui08} & \code{ui_08_task_queue.png} & \code{/tasks} & 多个任务排队；显示状态、优先级与暂停/取消/重跑按钮 \\
+\ref{fig:ui09} & \code{ui_09_replay_workbench.png} & \code{/replay} & 选择已完成任务与一条结果；四区（俯视轨迹、第一视角、时间轴、记忆面板）同屏 \\
+\ref{fig:ui10} & \code{ui_10_memory_window.png} & \code{/replay} & 放大记忆面板；窗口帧数、慢更新标记、裁剪前后 token 与上下文曲线 \\
+\ref{fig:ui11} & \code{ui_11_geometry_overlay.png} & \code{/replay} & 打开几何叠加；掩膜、参考走廊与速度曲线 \\
+\ref{fig:ui12} & \code{ui_12_analysis_compare.png} & \code{/analysis} & 选择 2--3 个任务；指标矩阵与相对基线的差值列 \\
+\ref{fig:ui13} & \code{ui_13_ablation_matrix.png} & \code{/analysis} & 切到消融矩阵；模态组合 × 记忆策略表格与柱状图 \\
+\ref{fig:ui14} & \code{ui_14_bootstrap.png} & \code{/analysis} & 选两任务执行配对 bootstrap；显示均值差、95\% 置信区间与显著性 \\
+\ref{fig:ui15} & \code{ui_15_longhorizon.png} & \code{/analysis} & 长时性能曲线；按步数分桶的 SR 与 NE 曲线 \\
+\ref{fig:ui16} & \code{ui_16_failure_attribution.png} & \code{/analysis} & 失败归因页；九类分布与样本列表、人工复核入口 \\
+\ref{fig:ui17} & \code{ui_17_report_center.png} & \code{/reports} & 生成报告弹窗与报告列表；Markdown/CSV 下载入口 \\
+\ref{fig:ui18} & \code{ui_18_sim_workbench.png} & \code{/sim} & 启动会话并走若干步；第一视角、俯视轨迹、控制按钮、读数同屏 \\
+\ref{fig:ui19} & \code{ui_19_sim_policy.png} & \code{/sim} & 打开模型驾驶面板；加载/启用/暂停/停止与显存提示 \\
+\ref{fig:ui20} & \code{ui_20_sim_oracle_trails.png} & \code{/sim} & 开启 oracle 走一段；实际/示范/最短路径三条线均可辨认 \\
+\ref{fig:ui21} & \code{ui_21_sim_pip_robot.png} & \code{/sim} & 打开画中画与机器狗；右上角 320×240 第三视角可见 \\
+\ref{fig:ui22} & \code{ui_22_sim_recording.png} & \code{/sim} & 录制并导出；显示进度、mp4 状态与下载按钮 \\
+\ref{fig:ui23} & \code{ui_23_backup_import.png} & \code{/backup-import} & 绑定目录后的总览；五类候选数、扫描预览、自动同步开关 \\
+\ref{fig:ui24} & \code{ui_24_system_status.png} & \code{/settings} & 系统设置与状态；运行参数、磁盘/数据库/队列/GPU 状态卡 \\
+\ref{fig:ui25} & \code{ui_25_audit_log.png} & \code{/audit} & 管理员登录；按时间筛选后的审计记录列表与详情 \\
+\ref{fig:ui26} & \code{ui_26_offline_mock.png} & \code{/tasks} 或 \code{/analysis} & 无 GPU 环境下用 Mock 适配器跑出结果；标注离线演示适配器 \\
+\ref{fig:ui27} & \code{ui_27_causal_guard.png} & \code{/tasks} & 在配置中故意填入非法输入项提交；显示 1006 错误提示与字段说明 \\
+\ref{fig:ui28} & \code{ui_28_login.png} & \code{/login} & 退出登录后截取；品牌图标、软件全称/版本、登录表单完整可见 \\
+\end{longtable}
+\normalsize
+
+\section{界面截图：可选 PlantUML 线框示意}
+
+若截图尚未完成，可先用 PlantUML \code{salt} 线框图临时占位（同样按上表文件名导出 PNG，放入 \code{figures/} 即可让正文占位框被替换）。下面给出全部 28 张的线框语法，每段独立，复制单段保存为 \code{.puml} 即可渲染；正式材料建议替换为真实界面截图。
+
+\begin{lstlisting}[style=navplain]
+' ---- ui_01_overview.png ----
+@startsalt
+{+ 码极客 NavEval Studio V1.0 | 管理员 v
+ { 总览 | 数据集 | 模型档案 | 评测任务 | 结果分析 | 轨迹回放 | 交互式仿真 | 报告中心 | 系统 }
+ == 总览 | 评测资产与运行状态一览
+ { [数据集 12] | [模型 8] | [任务 34] | [今日完成 5] }
+ { 最近任务列表（创建时间倒序） | 主要指标趋势图 }
+ { [新建评测] | [打开最近回放] }
+}
+@endsalt
+' ---- ui_02_dataset_list.png ----
+@startsalt
+{+ 数据集
+ { [+ 登记数据集] | [扫描] | "搜索名称/类型" }
+ { 名称 | 版本 | 类型 | 状态 | Episode 数 | 操作 }
+ { R2R-CE val_unseen | v1 | r2r_ce | ready | 1839 | [详情][扫描] }
+ { [场景统计 / 指令长度分布 / 轨迹长度分布] }
+}
+@endsalt
+' ---- ui_03_observation_timeline.png ----
+@startsalt
+{+ 多源观测时间轴 | Episode 1776
+ { RGB 帧轨道 | ============================ }
+ { Depth 帧轨道 | ============================ }
+ { 位姿轨道 | ============================ }
+ { 动作轨道 | ========^偏差标记======== }
+ { [上一帧] | "时间刻度 0 ---- t ---- T" | [下一帧] }
+}
+@endsalt
+' ---- ui_04_quality_validate.png ----
+@startsalt
+{+ 数据质量校验结果
+ { 问题类型 | 数量 | 涉及 episode }
+ { 缺帧 | 3 | 1776, 1821 } { 时间戳乱序 | 1 | 1803 }
+ { [导出问题清单] | [重新校验] }
+}
+@endsalt
+' ---- ui_05_frame_viewer.png ----
+@startsalt
+{+ 帧浏览 | Episode 1776 | 第 12 帧
+ { (X) RGB | () Depth | [X] 叠加可通行区域掩膜 }
+ { [ 第一视角帧图像（含掩膜叠加） ] }
+ { [首帧] | [上一帧] | "12 / 23" | [下一帧] | [末帧] }
+}
+@endsalt
+' ---- ui_06_task_wizard.png ----
+@startsalt
+{+ 新建评测任务向导 | 步骤 1/3
+ { 任务名称 | "vision_geo_state_seed42" }
+ { 数据集 / 切分 | ^R2R-CE val_unseen / smoke^ }
+ { 模型档案 / 配置模板 | ^StreamVLN / 视觉+几何+状态^ }
+ { 覆盖参数 | "history_len=8, prune_ratio=0.35, seed=42" }
+ { [取消] | [下一步] | [提交并运行] }
+}
+@endsalt
+' ---- ui_07_task_monitor.png ----
+@startsalt
+{+ 任务监控 | task-000012 | running
+ { [进度 137/1839  7.4%] | 当前 episode 1776 }
+ { 显存曲线 | 延迟曲线 | 上下文长度曲线 }
+ { 实时日志（可滚动，已落盘） }
+ { [暂停] | [取消] | [仅重跑失败项] }
+}
+@endsalt
+' ---- ui_08_task_queue.png ----
+@startsalt
+{+ 评测任务
+ { 任务 | 状态 | 优先级 | 创建时间 | 操作 }
+ { task-000012 | running | 5 | 2026-11-09 10:12 | [暂停][取消] }
+ { task-000013 | queued | 3 | 2026-11-09 10:20 | [取消] }
+ { task-000011 | succeeded | 5 | 2026-11-09 09:40 | [回放] }
+}
+@endsalt
+' ---- ui_09_replay_workbench.png ----
+@startsalt
+{+ 轨迹回放工作台 | 四区联动
+ { [俯视轨迹：参考/实际/起点/终点] | [第一视角帧] | [记忆状态面板] }
+ { 动作时间轴 | =====^当前步============ | [播放][单步][倍速] }
+ { 指令：Walk past the kitchen and stop at the top of the stairs }
+}
+@endsalt
+' ---- ui_10_memory_window.png ----
+@startsalt
+{+ 记忆窗口与空间裁剪
+ { 当前窗口帧数 8 | 慢更新次数 5 | 裁剪前 8192 | 裁剪后 5324 }
+ { 上下文长度曲线 | 窗口帧数曲线 }
+ { [X] 标记慢更新 | [X] 标记裁剪步 }
+}
+@endsalt
+' ---- ui_11_geometry_overlay.png ----
+@startsalt
+{+ 几何与运动状态叠加
+ { [X] 可通行区域掩膜 | [X] 参考走廊 | [X] 线速度曲线 }
+ { [俯视轨迹 + 掩膜叠加视图] }
+ { 线速度曲线 }
+}
+@endsalt
+' ---- ui_12_analysis_compare.png ----
+@startsalt
+{+ 多任务指标对比 | 基线 task-000011
+ { 任务 | SR | SPL | NE | OS | nDTW | TL | ΔSR }
+ { vision_only | 0.512 | 0.448 | 5.32 | 0.58 | 0.601 | 12.4 | 0.000 }
+ { vision_geo | 0.541 | 0.471 | 5.11 | 0.60 | 0.617 | 12.1 | +0.029 }
+ { [选择任务] | [设置基线] | [导出 CSV] }
+}
+@endsalt
+' ---- ui_13_ablation_matrix.png ----
+@startsalt
+{+ 消融实验矩阵 | 模态组合 × 记忆策略
+ {  | 固定窗口 | 滑动窗口 | 特征缓存 | 空间裁剪 }
+ { 仅视觉 | 0.49 | 0.51 | 0.52 | 0.53 }
+ { 视觉+几何 | 0.52 | 0.54 | 0.55 | 0.56 }
+ { [柱状图] }
+}
+@endsalt
+' ---- ui_14_bootstrap.png ----
+@startsalt
+{+ 配对 bootstrap | task-000011 vs task-000012
+ { 重采样次数 | "1000" } { 均值差 | "+0.029" }
+ { 95% 置信区间 | "[+0.006, +0.051]" } { 显著性 | 显著 }
+ { [执行检验] | [导出结果] }
+}
+@endsalt
+' ---- ui_15_longhorizon.png ----
+@startsalt
+{+ 长时性能曲线 | 按步数分桶
+ { [SR 随步数变化曲线] | [NE 随步数变化曲线] }
+ { 分桶粒度 | ^10 步^ | [刷新] }
+}
+@endsalt
+' ---- ui_16_failure_attribution.png ----
+@startsalt
+{+ 失败归因 | task-000012
+ { 超时 18 | 碰撞 7 | 偏离轨迹 11 | 原地打转 5 | 早停 9 }
+ { [失败样本列表（可人工复核修正）] }
+}
+@endsalt
+' ---- ui_17_report_center.png ----
+@startsalt
+{+ 报告中心
+ { [生成报告] | 格式 ^Markdown^ | 包含 [X]摘要 [X]指标 [X]失败案例 }
+ { 报告名称 | 格式 | 大小 | 生成时间 | 操作 }
+ { eval_summary_20261109 | md | 24 KB | 10:40 | [下载] }
+}
+@endsalt
+' ---- ui_18_sim_workbench.png ----
+@startsalt
+{+ 交互式仿真工作台 | Episode 1776
+ { [第一视角 MJPEG（右上角画中画）] | [俯视轨迹 三线对照] }
+ { [前进] | [左转] | [右转] | [停止] | [回起点] }
+ { 步数 36 | 距离 7.42m | NE 0.54 | SPL 0.93 | 帧率 14.4 }
+}
+@endsalt
+' ---- ui_19_sim_policy.png ----
+@startsalt
+{+ 模型驾驶面板
+ { 模型 | ^StreamVLN 8bit^ | GPU | ^2^ }
+ { [加载并启用] | [暂停] | [停用并释放显存] }
+ { 状态：按约 4 Hz 输出动作 | 显存预警提示 }
+}
+@endsalt
+' ---- ui_20_sim_oracle_trails.png ----
+@startsalt
+{+ 俯视轨迹三线对照
+ { [俯视图：实际轨迹（青实线）/ 示范轨迹（紫虚线）/ oracle（淡黄虚线）] }
+ { [X] 显示目标圈 | [X] 显示当前朝向 }
+ { 读数：测地距离 / NE / SPL 估计 }
+}
+@endsalt
+' ---- ui_21_sim_pip_robot.png ----
+@startsalt
+{+ 第三视角画中画与机器狗
+ { [第一视角主画面] | [右上角 320x240 画中画：Go2 模型] }
+ { [X] 显示画中画 | [X] 显示机器狗 }
+}
+@endsalt
+' ---- ui_22_sim_recording.png ----
+@startsalt
+{+ 仿真会话录制
+ { 已采集帧 340 | 采样率 15 fps }
+ { [开始/停止录制] | [导出 mp4] }
+ { 导出状态：编码中 62% | [下载 mp4] }
+}
+@endsalt
+' ---- ui_23_backup_import.png ----
+@startsalt
+{+ 系统 - 备份库导入
+ { 绑定目录 | "/home/zjr/StreamVLN-kaggle-backup" }
+ { 数据集 11 | 场景 240 | 模型 8 | 结果 34 | 资料 120 }
+ { [扫描预览 dry_run] | [立即导入] | [X] 自动同步（间隔 300s） }
+}
+@endsalt
+' ---- ui_24_system_status.png ----
+@startsalt
+{+ 系统设置与状态
+ { 工作目录 | 并发任务数 | GPU 列表 | 结果保留天数 }
+ { 磁盘占用 | 数据库大小 | 队列长度 | GPU 显存 }
+ { [保存设置（即时生效）] }
+}
+@endsalt
+' ---- ui_25_audit_log.png ----
+@startsalt
+{+ 操作审计
+ { 时间范围 | "2026-11-01 ~ 2026-11-09" | 操作类型 ^全部^ | [查询] }
+ { 时间 | 操作者 | 动作 | 对象 | 详情 }
+ { 10:12 | admin | task.create | 12 | [详情] }
+}
+@endsalt
+' ---- ui_26_offline_mock.png ----
+@startsalt
+{+ 离线演示模式 | 无 GPU / 无数据集
+ { 适配器 | MockAdapter | 数据源 | 内置示例结果 }
+ { [任务已成功] | [指标非空] | [回放可用] | [报告可导出] }
+}
+@endsalt
+' ---- ui_27_causal_guard.png ----
+@startsalt
+{+ 因果性校验
+ { 输入项 | "rgb, depth, pose, rgb_future" }
+ { ! 输入 rgb_future 不在白名单 [rgb,depth,pose,action] }
+ { 错误码 1006 | [返回修改] }
+}
+@endsalt
+' ---- ui_28_login.png ----
+@startsalt
+{+ 码极客 NavEval Studio
+ { 码极客具身导航多模态流式评测与诊断平台 V1.0 }
+ { 用户名 | "admin" } { 口令 | "********" }
+ { [登录] }
+}
+@endsalt
+\end{lstlisting}
+\fi

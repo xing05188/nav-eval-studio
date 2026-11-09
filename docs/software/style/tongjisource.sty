@@ -1,0 +1,89 @@
+% ============================================================
+%  tongjisource -- 软件著作权登记《源程序》版式
+%  规范：60 页，每页 50 行，共 3000 行；
+%        第 1--30 页为源程序前部，第 31--60 页为源程序后部；
+%        页眉标注软件全称与版本号，页脚标注当前源码文件与页码。
+% ============================================================
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{tongjisource}[2026/11/09 Layout for software source code listing]
+
+\input{style/navmeta}
+
+\RequirePackage{geometry}
+\geometry{a4paper,top=1.9cm,bottom=1.7cm,left=1.9cm,right=1.5cm,
+          headheight=14pt,headsep=7pt,footskip=0.75cm}
+\RequirePackage{xcolor}
+\RequirePackage{listings}
+\RequirePackage{fancyhdr}
+\RequirePackage{graphicx}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+% CJK 字形的行盒会略高于西文字体；允许行盒高度超过 \baselineskip 时
+% 仍按固定行距堆叠（字形本身小于行距），保证每页严格 50 行。
+\setlength{\lineskiplimit}{-100pt}
+\setlength{\lineskip}{0pt}
+
+% ------------------------------------------------------------
+% 代码排版：8.5bp/13bp 等宽，50 行约占 650bp，页内可容纳少量折行
+% ------------------------------------------------------------
+\lstset{
+  basicstyle=\fontsize{8.5bp}{13bp}\ttfamily,
+  columns=fullflexible,
+  keepspaces=true,
+  extendedchars=false,
+  showstringspaces=false,
+  breaklines=true,
+  breakindent=0pt,
+  breakatwhitespace=false,
+  tabsize=4,
+  aboveskip=0pt,
+  belowskip=0pt,
+  xleftmargin=0pt,
+  xrightmargin=0pt,
+  frame=none,
+  numbers=left,
+  numberstyle=\fontsize{7bp}{9bp}\selectfont\color{black!45},
+  numbersep=8pt,
+  numberblanklines=false,
+  firstnumber=1,
+}
+% ctex 默认把 \baselinestretch 设为约 1.3，会把 13bp 的行距放大成 17bp，
+% 导致 50 行代码溢出为两页；此处在文档开始时压回单倍行距。
+\AtBeginDocument{\linespread{1}\selectfont}
+% listings 在环境初始化时可能恢复默认的行间规则，用 Init 钩子再次压住。
+\makeatletter
+\lst@AddToHook{Init}{\lineskiplimit=-100pt\relax \lineskip=0pt\relax}
+\makeatother
+
+% ------------------------------------------------------------
+% 页眉页脚
+% ------------------------------------------------------------
+\newcommand{\srchint}{}
+\newcommand{\sourcepagelabel}{%
+  \ifnum\value{page}<31 源程序·前30页\else 源程序·后30页\fi}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\softwareheader}
+\fancyhead[R]{\small\sourcepagelabel}
+\fancyfoot[L]{\footnotesize\color{black!55}\srchint}
+\fancyfoot[R]{\small 第~\thepage~页~/~共~60~页}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancypagestyle{plain}{%
+  \fancyhf{}\fancyhead[L]{\small\softwareheader}%
+  \fancyhead[R]{\small\sourcepagelabel}%
+  \fancyfoot[L]{\footnotesize\color{black!55}\srchint}%
+  \fancyfoot[R]{\small 第~\thepage~页~/~共~60~页}%
+  \renewcommand{\headrulewidth}{0.4pt}}
+
+% ------------------------------------------------------------
+% \sourcepage{页码}{当前页主要源码文件}{起始行}{结束行}
+% 由 tools/gen_source.py 生成到 chapters/source_body.tex
+% ------------------------------------------------------------
+\newcommand{\sourcepage}[4]{%
+  \gdef\srchint{\detokenize{#2}}%
+  \ifnum#1>1\clearpage\fi
+  \lstinputlisting[firstline=#3,lastline=#4,firstnumber=#3]{chapters/source_excerpt.txt}%
+}
+
+\endinput
