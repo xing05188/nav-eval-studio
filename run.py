@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""码极客具身导航多模态流式评测与诊断平台 V1.0 启动入口。
+"""码极客具身导航评测与诊断软件 V1.0 启动入口。
 
 用法：
     python run.py                     # 默认 127.0.0.1:8080
@@ -23,7 +23,7 @@ if str(ROOT_DIR) not in sys.path:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="码极客具身导航多模态流式评测与诊断平台 V1.0")
+    parser = argparse.ArgumentParser(description="码极客具身导航评测与诊断软件 V1.0")
     parser.add_argument("--host", default=None, help="监听地址，默认取配置文件")
     parser.add_argument("--port", type=int, default=None, help="监听端口，默认取配置文件")
     parser.add_argument("--config", default=None, help="配置文件路径")
@@ -62,7 +62,7 @@ def main() -> None:
         open_browser_later(url)
 
     print("=" * 64)
-    print(" 码极客具身导航多模态流式评测与诊断平台 V1.0")
+    print(" 码极客具身导航评测与诊断软件 V1.0")
     print(f" 访问地址：{url}")
     print(f" 接口文档：{url}/docs")
     print(f" 工作目录：{settings.storage.work_dir}")

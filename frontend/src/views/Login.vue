@@ -8,7 +8,7 @@
 
       <div class="brand-body">
         <p class="eyebrow">用于 R2R-CE 与 RxR-CE 基准的评测、诊断与回放</p>
-        <h1>码极客具身导航多模态<br />流式评测与诊断平台</h1>
+        <h1>码极客具身导航<br />评测与诊断软件</h1>
         <p class="lede">
           从数据准备到失败归因，把一次 VLN 评测变成可复现、可追溯的工程流程。
         </p>
@@ -127,7 +127,7 @@
         </div>
       </div>
 
-      <div class="copyright">码极客具身导航多模态流式评测与诊断平台 V1.0</div>
+      <div class="copyright">码极客具身导航评测与诊断软件 V1.0</div>
     </section>
   </div>
 </template>

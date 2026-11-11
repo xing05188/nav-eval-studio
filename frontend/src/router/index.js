@@ -120,7 +120,7 @@ router.beforeEach((to) => {
   }
   document.title = to.meta.title
     ? `${to.meta.title} · 码极客 NavEval Studio`
-    : '码极客具身导航多模态流式评测与诊断平台 V1.0'
+    : '码极客具身导航评测与诊断软件 V1.0'
   return true
 })
 

@@ -93,7 +93,7 @@
           <el-icon><Fold v-if="!collapsed" /><Expand v-else /></el-icon>
         </button>
         <div class="crumb">
-          <span class="crumb-root">码极客具身导航多模态流式评测与诊断平台</span>
+          <span class="crumb-root">码极客具身导航评测与诊断软件</span>
           <el-icon class="crumb-sep"><ArrowRight /></el-icon>
           <span>{{ route.meta.title || '总览' }}</span>
         </div>

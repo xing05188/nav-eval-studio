@@ -53,13 +53,13 @@ logger = logging.getLogger(__name__)
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 PLACEHOLDER_HTML = """<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><title>码极客具身导航多模态流式评测与诊断平台 V1.0</title>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>码极客具身导航评测与诊断软件 V1.0</title>
 <style>body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#0f172a;color:#e2e8f0;
 display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
 .box{max-width:640px;padding:40px;border:1px solid #1e293b;border-radius:14px;background:#111c33}
 h1{font-size:20px;margin:0 0 12px}p{color:#94a3b8;line-height:1.8;margin:6px 0}
 code{background:#1e293b;padding:2px 6px;border-radius:4px;color:#7dd3fc}</style></head>
-<body><div class="box"><h1>码极客具身导航多模态流式评测与诊断平台 V1.0</h1>
+<body><div class="box"><h1>码极客具身导航评测与诊断软件 V1.0</h1>
 <p>服务端已启动，前端构建产物尚未生成。</p>
 <p>开发模式：<code>cd frontend &amp;&amp; npm install &amp;&amp; npm run dev</code></p>
 <p>生产模式：<code>cd frontend &amp;&amp; npm run build</code> 后刷新本页。</p>
@@ -105,7 +105,7 @@ def create_app() -> FastAPI:
     bootstrap()
 
     app = FastAPI(
-        title="码极客具身导航多模态流式评测与诊断平台",
+        title="码极客具身导航评测与诊断软件",
         version="1.0.0",
         description="码极客 NavEval Studio 服务端接口",
         lifespan=lifespan,

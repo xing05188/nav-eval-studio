@@ -255,7 +255,7 @@ def build_markdown(
     include = [item for item in (payload.include or []) if item in SUPPORTED_INCLUDE]
 
     lines = [
-        "# 码极客具身导航多模态流式评测与诊断平台 · 评测分析报告",
+        "# 码极客具身导航评测与诊断软件 · 评测分析报告",
         "",
         f"- 生成时间：{_now()}",
         f"- 任务数量：{len(compare['rows'])}",
